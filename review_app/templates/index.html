@@ -7,11 +7,8 @@
     
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
     <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&family=Manrope%3Awght%40400%3B500%3B700%3B800&family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
-    
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body style="font-family: Manrope, 'Noto Sans', sans-serif;">
@@ -28,7 +25,6 @@
                     <button id="select-folder-btn" class="action-button">Select Folder</button>
                     <button id="select-files-btn" class="action-button">Select Files</button>
                 </div>
-                 <button id="load-session-btn" class="secondary-button mt-4">Load Existing Project</button>
             </div>
         </div>
 
@@ -38,29 +34,19 @@
                     <div class="size-6 text-[#d0140a]"><svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.0799 24L4 19.2479L9.95537 8.75216L18.04 13.4961L18.0446 4H29.9554L29.96 13.4961L38.0446 8.75216L44 19.2479L35.92 24L44 28.7521L38.0446 39.2479L29.96 34.5039L29.9554 44H18.0446L18.04 34.5039L9.95537 39.2479L4 28.7521L12.0799 24Z" fill="currentColor"></path></svg></div>
                     <h2 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em]">Diptych Creator</h2>
                 </div>
-                <div class="flex items-center gap-4">
-                    <button id="save-session-btn" class="secondary-button">Save Session</button>
-                </div>
             </header>
-
             <div class="gap-1 px-6 flex flex-1 justify-center py-5 overflow-hidden">
                 <div class="layout-content-container flex flex-col max-w-[920px] flex-1">
                     <h2 class="text-[#1c0e0d] tracking-light text-[28px] font-bold leading-tight px-4 text-left pb-3 pt-5">Diptych Canvas</h2>
-                    <div id="diptych-pairs-container" class="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4 p-4 overflow-y-auto">
-                        </div>
+                    <div id="diptych-pairs-container" class="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4 p-4 overflow-y-auto"></div>
                 </div>
-
                 <div class="layout-content-container flex flex-col w-[360px] border-l border-solid border-l-[#f4e7e7]">
                     <h3 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Image Pool (<span id="unpaired-count">0</span>)</h3>
-                    <div id="image-pool" class="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-3 p-4 overflow-y-auto h-1/2">
-                        </div>
-                    
-                    <button id="ai-suggest-btn" class="ai-button mx-4">✨ Suggest AI Pairings</button>
-
+                    <div id="image-pool" class="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-3 p-4 overflow-y-auto h-1/2"></div>
                     <h3 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-6">Configuration</h3>
                     <div class="flex flex-col gap-4 px-4 py-3">
-                         <label class="flex flex-col gap-1">
-                            <span class="font-semibold text-sm">Output Size (in)</span>
+                         <label class="config-label">
+                            <span>Output Size (in)</span>
                             <select id="output-size" class="form-input custom-select">
                                 <option value="6x4">6 x 4 (Landscape)</option>
                                 <option value="7x5">7 x 5 (Landscape)</option>
@@ -69,9 +55,13 @@
                                 <option value="5x7">5 x 7 (Portrait)</option>
                             </select>
                          </label>
-                         <label class="flex flex-col gap-1">
-                            <span class="font-semibold text-sm">Gap between images (px)</span>
+                         <label class="config-label">
+                            <span>Gap (px)</span>
                             <input type="range" id="output-gap" min="0" max="100" value="10" class="w-full">
+                         </label>
+                         <label class="config-label flex-row items-center">
+                            <span>Download as .zip</span>
+                            <input type="checkbox" id="zip-toggle" class="form-checkbox" checked>
                          </label>
                          <input type="hidden" id="output-dpi" value="300">
                     </div>
@@ -83,11 +73,10 @@
                 </div>
             </div>
         </div>
-
         <div id="loading-overlay" class="hidden absolute inset-0 z-30 bg-white/70 backdrop-blur-sm flex items-center justify-center">
             <div class="text-center">
                 <div class="loader"></div>
-                <p class="text-lg font-semibold mt-4">Generating... Please wait.</p>
+                <p class="text-lg font-semibold mt-4">Loading...</p>
             </div>
         </div>
     </div>

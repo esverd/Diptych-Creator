@@ -1,4 +1,3 @@
-/* Custom properties from the design for easy reference */
 :root {
     --brand-red: #d0140a;
     --text-dark: #1c0e0d;
@@ -8,33 +7,33 @@
     --text-placeholder: #9c4e49;
 }
 
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    background-color: var(--bg-main);
+}
+
+.hidden { display: none !important; }
+
 /* --- BUTTON STYLES --- */
 .action-button {
     display: flex;
-    min-width: 84px;
-    max-width: 480px;
     cursor: pointer;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
     border-radius: 9999px;
     height: 40px;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    flex: 1;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
     background-color: var(--brand-red);
     color: var(--bg-main);
     font-size: 0.875rem;
     font-weight: 700;
-    line-height: 1.25rem;
-    letter-spacing: 0.015em;
     transition: background-color 0.2s;
 }
-.action-button:hover {
-    background-color: #a81008;
-}
+.action-button:hover { background-color: #a81008; }
 
-.secondary-button {
+.secondary-button { /* For future buttons like Save/Load */
     background-color: transparent;
     border: 1px solid var(--border-mid);
     color: var(--text-dark);
@@ -43,27 +42,17 @@
     font-weight: 600;
     transition: background-color 0.2s, color 0.2s;
 }
-.secondary-button:hover {
-    background-color: #fbeeee;
-}
+.secondary-button:hover { background-color: #fbeeee; }
 
-.ai-button {
-    background-color: #fff;
-    border: 1px solid #d0c7c7;
-    color: #5d504f;
-    padding: 0.5rem 1rem;
-    border-radius: 9999px;
+/* --- LAYOUT & CONFIG --- */
+.config-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    transition: background-color 0.2s, box-shadow 0.2s;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    color: var(--text-dark);
 }
-.ai-button:hover {
-    background-color: #f9f9f9;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-}
-
-
-/* --- FORM & INPUT STYLES --- */
 .custom-select {
     appearance: none;
     background-image: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724px%27 height=%2724px%27 fill=%27rgb(156,78,73)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e');
@@ -74,13 +63,9 @@
     background-color: var(--bg-main);
     padding-right: 2.5rem;
 }
-.custom-select:focus {
-    outline: 0;
-    box-shadow: none;
-    border-color: var(--border-mid);
-}
+.custom-select:focus { outline: 0; box-shadow: none; border-color: var(--border-mid); }
 
-/* --- DRAG & DROP & LAYOUT STYLES --- */
+/* --- DRAG & DROP --- */
 .img-container {
     aspect-ratio: 1 / 1;
     border-radius: 0.75rem;
@@ -89,14 +74,8 @@
     position: relative;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
-.img-container:active {
-    cursor: grabbing;
-}
-.img-container img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
+.img-container:active { cursor: grabbing; }
+.img-container img { width: 100%; height: 100%; object-fit: cover; }
 
 .diptych-slot {
     border: 2px dashed var(--border-mid);
@@ -105,43 +84,53 @@
     gap: 8px;
     padding: 8px;
     background-color: #fdfbfb;
-    align-items: center; /* Vertically center content */
-    justify-content: space-around; /* Distribute space */
-}
-.diptych-slot .img-container {
-    flex-basis: calc(50% - 4px); /* Account for gap */
-    height: 100%;
-    aspect-ratio: auto;
-}
-.diptych-slot .img-container img {
-    border-radius: 6px;
 }
 
 .diptych-half {
     flex: 1;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 0.9rem;
-    color: var(--text-placeholder);
+    height: 150px; /* Give it a default height */
     border-radius: 6px;
     background-color: #f7f2f2;
 }
 
-.hidden {
-    display: none !important;
+/* --- IMAGE CONTROLS (ROTATE/CLEAR) --- */
+.img-controls {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 4px;
+    opacity: 0; /* Hidden by default */
+    pointer-events: none; /* Can't be clicked when hidden */
+    transition: opacity 0.2s;
 }
+/* FIX: Only show controls when an image is inside the Diptych Canvas */
+#diptych-pairs-container .img-container:hover .img-controls {
+    opacity: 1;
+    pointer-events: auto;
+}
+.control-btn {
+    background: rgba(255,255,255,0.8);
+    backdrop-filter: blur(4px);
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.control-btn:hover { background-color: white; }
+.control-btn svg { width: 18px; height: 18px; color: #333; }
 
 /* --- LOADER --- */
 .loader {
-    width: 60px;
-    height: 60px;
+    width: 60px; height: 60px;
     border: 6px solid #f4e7e7;
     border-top-color: var(--brand-red);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
