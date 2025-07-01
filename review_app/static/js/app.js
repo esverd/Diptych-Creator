@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Element Selectors ---
     const selectFolderBtn = document.getElementById('select-folder-btn');
     const selectFilesBtn = document.getElementById('select-files-btn');
     const appContainer = document.getElementById('app-container');
@@ -10,39 +11,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const unpairedCount = document.getElementById('unpaired-count');
 
     // --- Event Listeners ---
-    selectFolderBtn.addEventListener('click', () => handleFileSelection(true));
-    selectFilesBtn.addEventListener('click', () => handleFileSelection(false));
+    selectFolderBtn.addEventListener('click', () => triggerPathSelection(true));
+    selectFilesBtn.addEventListener('click', () => triggerPathSelection(false));
     generateBtn.addEventListener('click', generateDiptychs);
     
     // --- Core Functions ---
-    async function handleFileSelection(isFolder) {
-        // This is a conceptual example. Electron or Tauri would be needed for native dialogs.
-        // For a simple local web app, we'll use the standard file input.
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.webkitdirectory = isFolder;
-        input.multiple = !isFolder;
-        input.onchange = async (e) => {
-            const files = Array.from(e.target.files);
-            const paths = files.map(file => file.webkitRelativePath || file.name); // This is a limitation
-            
-            // In a real desktop app, we'd get full paths. Here we simulate.
-            // A better approach would be a Python-triggered dialog.
-            alert("This is a proof of concept. In a real application, you'd get full file paths. For now, ensure your `app.py` has access to the image directory.");
+    async function triggerPathSelection(isFolder) {
+        // Step 1: Tell the Python backend to open a native file/folder dialog
+        await fetch('/select_paths', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_folder: isFolder })
+        });
 
-            // Let's assume for this demo that the backend can find the images.
-            // We'll need to adapt the backend to know where to look.
-            // For now, let's just send the file names.
-            const fileNames = files.map(f => f.name);
-            const response = await fetch('/get_images', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ paths: fileNames }) // Sending filenames
-            });
-            const imagePaths = await response.json();
+        // Step 2: Now that Python has the paths, ask for them
+        const response = await fetch('/get_images');
+        const imagePaths = await response.json();
+        
+        if (imagePaths.length > 0) {
             setupWorkbench(imagePaths);
-        };
-        input.click();
+        } else {
+            alert("No images were selected or found.");
+        }
     }
 
     function setupWorkbench(imagePaths) {
@@ -53,17 +43,29 @@ document.addEventListener('DOMContentLoaded', () => {
         imagePool.innerHTML = '';
         diptychPairsContainer.innerHTML = '';
 
-        imagePaths.forEach(path => {
+        // Auto-pair chronologically as a starting suggestion
+        const unpaired = [...imagePaths];
+        while (unpaired.length >= 2) {
+            const pair = [unpaired.shift(), unpaired.shift()];
+            const slot = createDiptychSlot();
+            pair.forEach(path => {
+                const imgContainer = createImageElement(path);
+                const targetHalf = slot.querySelector(pair.indexOf(path) === 0 ? '[data-position="left"]' : '[data-position="right"]');
+                targetHalf.innerHTML = ''; // Clear "Drop..." text
+                targetHalf.appendChild(imgContainer);
+            });
+            diptychPairsContainer.appendChild(slot);
+        }
+
+        // Add remaining single images to the pool
+        unpaired.forEach(path => {
             const imgContainer = createImageElement(path);
             imagePool.appendChild(imgContainer);
         });
 
-        // Create initial diptych slots
-        for (let i = 0; i < Math.ceil(imagePaths.length / 2); i++) {
-            const slot = createDiptychSlot();
-            diptychPairsContainer.appendChild(slot);
-        }
-
+        // Add one empty slot for flexibility
+        diptychPairsContainer.appendChild(createDiptychSlot());
+        
         updateUnpairedCount();
         initializeDragAndDrop();
     }
@@ -73,11 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
         container.className = 'img-container';
         container.dataset.path = path;
         
-        // In a true local app, we'd load the image via a custom file protocol or blob URL
-        // For this demo, let's assume images are served by Flask for preview.
-        // This is a significant architectural decision. Let's adapt Flask for this.
         const img = document.createElement('img');
+        // This route now works because app.py has the full path
         img.src = `/image_preview?path=${encodeURIComponent(path)}`;
+        img.title = path; // Show full path on hover
         container.appendChild(img);
         return container;
     }
@@ -86,8 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const slot = document.createElement('div');
         slot.className = 'diptych-slot';
         slot.innerHTML = `
-            <div class="diptych-half" data-position="left">Drop Left Image</div>
-            <div class="diptych-half" data-position="right">Drop Right Image</div>
+            <div class="diptych-half" data-position="left"><span>Drop Left</span></div>
+            <div class="diptych-half" data-position="right"><span>Drop Right</span></div>
         `;
         return slot;
     }
@@ -100,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         new Sortable(imagePool, {
             group: 'shared',
             animation: 150,
-            onEnd: updateUnpairedCount
+            onEnd: updateUnpairedCount,
         });
 
         document.querySelectorAll('.diptych-half').forEach(half => {
@@ -108,14 +109,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 group: 'shared',
                 animation: 150,
                 onAdd: function (evt) {
+                    const item = evt.item;
                     // Ensure only one image per half
                     if (this.el.children.length > 1) {
-                        const oldItem = this.el.children[0] === evt.item ? this.el.children[1] : this.el.children[0];
+                        const oldItem = this.el.children[0] === item ? this.el.children[1] : this.el.children[0];
                         imagePool.appendChild(oldItem);
                     }
-                    this.el.style.border = '1px solid #eee';
-                    this.el.innerText = '';
+                    if (this.el.querySelector('span')) {
+                        this.el.querySelector('span').style.display = 'none';
+                    }
                     updateUnpairedCount();
+                },
+                onRemove: function(evt) {
+                     if (this.el.children.length === 0) {
+                        this.el.innerHTML = `<span>Drop ${this.el.dataset.position.charAt(0).toUpperCase() + this.el.dataset.position.slice(1)}</span>`;
+                    }
                 }
             });
         });
@@ -134,14 +142,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (pairs.length === 0) {
-            alert("Please create at least one complete pair.");
+            alert("Please create at least one complete diptych pair.");
             loadingOverlay.classList.add('hidden');
             return;
         }
 
+        const sizeInput = document.getElementById('output-size').value.split('x');
         const config = {
-            width: document.getElementById('output-size').value.split('x')[0],
-            height: document.getElementById('output-size').value.split('x')[1],
+            width: sizeInput[0] || 6,
+            height: sizeInput[1] || 4,
             dpi: document.getElementById('output-dpi').value,
             gap: document.getElementById('output-gap').value
         };
@@ -153,28 +162,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const result = await response.json();
-        
         loadingOverlay.classList.add('hidden');
         
         if (result.zip_path) {
-            window.location.href = `/download_zip?path=${encodeURIComponent(result.zip_path)}&name=${encodeURIComponent(result.download_name)}`;
+            // Trigger download via a hidden link
+            const a = document.createElement('a');
+            a.href = `/download_zip?path=${encodeURIComponent(result.zip_path)}&name=${encodeURIComponent(result.download_name)}`;
+            a.download = result.download_name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         } else {
-            alert("Something went wrong during generation.");
+            alert("An error occurred during diptych generation. See console for details.");
         }
     }
-
-    // A note on the file selection limitation:
-    // A true cross-platform desktop feel requires a framework like Electron or Tauri.
-    // For this pure Python + Web UI approach, we'll need to adjust app.py to serve images.
-    // I will add an `/image_preview` route to app.py now.
 });
-
-// Update app.py with this route:
-/*
-@app.route('/image_preview')
-def image_preview():
-    path = request.args.get('path')
-    if os.path.exists(path):
-        return send_file(path)
-    return "Image not found", 404
-*/
