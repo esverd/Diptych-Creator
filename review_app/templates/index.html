@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diptych Creator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Diptych Creator</h1>
+        <div class="actions">
+            <button id="select-folder-btn">Select Folder</button>
+            <button id="select-files-btn">Select Files</button>
+        </div>
+    </header>
+
+    <main id="app-container" class="hidden">
+        <aside id="image-pool-container">
+            <h2>Image Pool (<span id="unpaired-count">0</span>)</h2>
+            <div id="image-pool" class="image-grid">
+                </div>
+        </aside>
+
+        <section id="workbench">
+            <div id="workbench-header">
+                <h2>Diptych Workbench</h2>
+                 <div class="config-panel">
+                    <label>Size: <input type="text" id="output-size" value="6x4"> in</label>
+                    <label>DPI: <input type="number" id="output-dpi" value="300"></label>
+                    <label>Gap: <input type="range" id="output-gap" min="0" max="100" value="10"> px</label>
+                    <button id="generate-btn" class="hidden">Generate Diptychs</button>
+                 </div>
+            </div>
+            <div id="diptych-pairs-container">
+                </div>
+        </section>
+    </main>
+
+    <div id="welcome-screen">
+        <h2>Welcome to the Diptych Creator</h2>
+        <p>Select a folder or multiple image files to begin.</p>
+    </div>
+
+    <div id="loading-overlay" class="hidden">
+        <div class="loader"></div>
+        <p>Generating... Please wait.</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
