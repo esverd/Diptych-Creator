@@ -3,81 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diptych Creator</title>
-    
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
-    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&family=Manrope%3Awght%40400%3B500%3B700%3B800&family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
+    <title>Diptych Master</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&family=Manrope%3Awght%40400%3B500%3B700%3B800&family=Noto+Sans%3Awght%40400%3B500%3B700%3B900">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
-<body style="font-family: Manrope, 'Noto Sans', sans-serif;">
-    <div class="relative flex size-full min-h-screen flex-col bg-[#fcf8f8] overflow-x-hidden">
-        
-        <div id="welcome-screen" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#fcf8f8]">
-            <div class="text-center">
-                <div class="inline-block text-[#d0140a] mb-4">
-                    <svg width="64" height="64" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.0799 24L4 19.2479L9.95537 8.75216L18.04 13.4961L18.0446 4H29.9554L29.96 13.4961L38.0446 8.75216L44 19.2479L35.92 24L44 28.7521L38.0446 39.2479L29.96 34.5039L29.9554 44H18.0446L18.04 34.5039L9.95537 39.2479L4 28.7521L12.0799 24Z" fill="currentColor"></path></svg>
-                </div>
-                <h1 class="text-[#1c0e0d] text-4xl font-bold tracking-tighter">Diptych Creator</h1>
-                <p class="text-slate-600 mt-2">Create stunning two-image layouts from your photos.</p>
-                <div class="mt-8 flex gap-4 justify-center">
-                    <button id="select-folder-btn" class="action-button">Select Folder</button>
-                    <button id="select-files-btn" class="action-button">Select Files</button>
-                </div>
+<body class="bg-white text-[var(--text-primary)]" style="font-family: Manrope, 'Noto Sans', sans-serif;">
+    <div id="welcome-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white">
+        <div class="text-center">
+            <div class="inline-block text-[var(--primary-color)] mb-4">
+                <svg width="64" height="64" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                    <g clip-path="url(#clip0_6_535_welcome)">
+                        <path clip-rule="evenodd" d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z" fill="currentColor" fill-rule="evenodd"></path>
+                    </g>
+                    <defs><clipPath id="clip0_6_535_welcome"><rect fill="white" height="48" width="48"></rect></clipPath></defs>
+                </svg>
+            </div>
+            <h1 class="text-4xl font-bold tracking-tighter">Diptych Master</h1>
+            <p class="text-slate-600 mt-2">The professional way to create two-image layouts.</p>
+            <div class="mt-8 flex gap-4 justify-center">
+                <button id="select-folder-btn" class="btn btn-primary w-36">Select Folder</button>
+                <button id="select-files-btn" class="btn btn-secondary w-36">Select Files</button>
             </div>
         </div>
+    </div>
 
-        <div id="app-container" class="layout-container flex h-full grow flex-col hidden">
-            <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#f4e7e7] px-10 py-3">
-                <div class="flex items-center gap-4 text-[#1c0e0d]">
-                    <div class="size-6 text-[#d0140a]"><svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.0799 24L4 19.2479L9.95537 8.75216L18.04 13.4961L18.0446 4H29.9554L29.96 13.4961L38.0446 8.75216L44 19.2479L35.92 24L44 28.7521L38.0446 39.2479L29.96 34.5039L29.9554 44H18.0446L18.04 34.5039L9.95537 39.2479L4 28.7521L12.0799 24Z" fill="currentColor"></path></svg></div>
-                    <h2 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em]">Diptych Creator</h2>
+    <div id="app-container" class="relative flex size-full min-h-screen flex-col overflow-hidden hidden">
+        <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[var(--accent-color)] px-4 py-3 sm:px-6">
+            <div class="flex items-center gap-3">
+                <div class="size-7 text-[var(--primary-color)]">
+                    <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                        <g clip-path="url(#clip0_6_535)">
+                            <path clip-rule="evenodd" d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z" fill="currentColor" fill-rule="evenodd"></path>
+                        </g>
+                        <defs><clipPath id="clip0_6_535"><rect fill="white" height="48" width="48"></rect></clipPath></defs>
+                    </svg>
                 </div>
-            </header>
-            <div id="main-content" class="gap-1 px-6 flex flex-1 justify-center py-5 overflow-hidden">
-                <div id="canvas-panel" class="layout-content-container flex flex-col flex-1 transition-all duration-300">
-                    <h2 class="text-[#1c0e0d] tracking-light text-[28px] font-bold leading-tight px-4 text-left pb-3 pt-5">Diptych Canvas</h2>
-                    <div id="diptych-pairs-container" class="grid grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-4 p-4 overflow-y-auto">
-                        <!-- Canvas slots will be dynamically inserted here -->
+                <h1 class="text-lg font-bold tracking-tight">Diptych Master</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="download-btn" class="btn btn-primary"><span class="truncate">Download All</span></button>
+                <button id="mobile-menu-btn" class="icon-btn md:hidden">
+                    <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex flex-1 flex-col">
+            <div class="flex flex-1">
+                <aside id="left-panel" class="w-72 border-r border-[var(--accent-color)] p-4 space-y-4 hidden md:flex md:flex-col">
+                    <h2 class="text-lg font-semibold mb-3">Your Images (<span id="unpaired-count">0</span>)</h2>
+                    <div id="image-pool" class="grid grid-cols-2 gap-3 overflow-y-auto flex-1">
+                        <!-- Image thumbnails will be injected here -->
                     </div>
+                    <button id="upload-more-btn" class="btn btn-secondary w-full mt-4">
+                        <svg class="mr-2" fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line>
+                        </svg>
+                        Upload More
+                    </button>
+                </aside>
+
+                <div class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-50">
+                    <div id="main-canvas" class="w-full max-w-2xl aspect-[2/1] bg-white rounded-xl shadow-2xl border border-[var(--border-color)] overflow-hidden">
+                        <!-- Diptych preview will be the background of this div -->
+                    </div>
+                    <p class="mt-4 text-sm text-[var(--text-secondary)]">Drag images from the left panel or <label class="text-[var(--primary-color)] font-medium hover:underline cursor-pointer" for="upload-input-main">click here to upload</label>.</p>
+                    <input accept="image/*" class="hidden" id="upload-input-main" multiple type="file"/>
                 </div>
-                <div id="right-panel" class="layout-content-container flex flex-col w-[360px] border-l border-solid border-l-[#f4e7e7] transition-all duration-300">
-                    <h3 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Image Pool (<span id="unpaired-count">0</span>)</h3>
-                    <div id="image-pool" class="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-3 p-4 overflow-y-auto h-1/2">
-                        <!-- Draggable image thumbnails will be inserted here -->
+
+                <aside id="right-panel" class="w-72 border-l border-[var(--accent-color)] p-4 space-y-6 hidden md:block">
+                    <div>
+                        <h3 class="config-heading">Layout</h3>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="config-label" for="image-fitting">Image Fitting</label>
+                                <select class="form-input-custom" id="image-fitting" name="image-fitting">
+                                    <option value="fill">Crop / Fill</option>
+                                    <option value="fit">Fit / Letterbox</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between">
+                                    <label class="config-label" for="border-size">Border Size</label>
+                                    <p id="border-size-value" class="text-xs text-[var(--text-secondary)]">10 px</p>
+                                </div>
+                                <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="border-size" max="50" min="0" name="border-size" type="range" value="10"/>
+                            </div>
+                        </div>
                     </div>
-                    <h3 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-6">Configuration</h3>
-                    <div class="flex flex-col gap-4 px-4 py-3">
-                         <label class="config-label">
-                            <span>Output Size (in)</span>
-                            <select id="output-size" class="form-input custom-select">
-                                <option value="6x4">6 x 4 (Landscape)</option>
-                                <option value="7x5">7 x 5 (Landscape)</option>
-                                <option value="10x8">10 x 8 (Landscape)</option>
-                                <option value="4x6">4 x 6 (Portrait)</option>
-                                <option value="5x7">5 x 7 (Portrait)</option>
-                            </select>
-                         </label>
-                         <label class="config-label">
-                            <span>Gap (px)</span>
-                            <input type="range" id="output-gap" min="0" max="100" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                         </label>
+                    <div id="image-1-controls" class="hidden">
+                        <h3 class="config-heading">Image 1</h3>
+                        <div class="space-y-3">
+                            <div class="flex gap-2">
+                                <button data-slot="1" class="btn-rotate btn btn-secondary flex-1 text-xs">
+                                    <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                    Rotate
+                                </button>
+                            </div>
+                            <button data-slot="1" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 w-full text-xs">
+                                <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                    <div id="image-2-controls" class="hidden">
+                        <h3 class="config-heading">Image 2</h3>
+                        <div class="space-y-3">
+                           <div class="flex gap-2">
+                                <button data-slot="2" class="btn-rotate btn btn-secondary flex-1 text-xs">
+                                    <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                    Rotate
+                                </button>
+                            </div>
+                            <button data-slot="2" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 w-full text-xs">
+                                <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                     <div class="pt-4 border-t border-[var(--accent-color)]">
                          <label class="config-label flex-row items-center justify-between">
                             <span>Download as .zip</span>
                             <input type="checkbox" id="zip-toggle" class="form-checkbox h-5 w-5 rounded text-red-700 focus:ring-red-600" checked>
                          </label>
-                         <input type="hidden" id="output-dpi" value="300">
                     </div>
-                    <div class="flex px-4 py-3 mt-auto">
-                        <button id="generate-btn" class="action-button w-full justify-center">
-                            <span class="truncate">Generate Diptychs</span>
-                        </button>
+                </aside>
+            </div>
+
+            <div id="bottom-bar" class="bg-gray-100 border-t border-[var(--accent-color)] px-4 py-3 overflow-x-auto whitespace-nowrap">
+                <div class="flex items-center space-x-3">
+                    <button id="scroll-left-btn" class="icon-btn !size-8 shrink-0">
+                        <svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg>
+                    </button>
+                    <div id="diptych-tray" class="inline-flex items-center space-x-3">
+                        <!-- Diptych tray items will be injected here -->
                     </div>
+                    <button id="scroll-right-btn" class="icon-btn !size-8 shrink-0">
+                        <svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg>
+                    </button>
                 </div>
             </div>
-        </div>
-        <div id="loading-overlay" class="hidden absolute inset-0 z-30 bg-white/70 backdrop-blur-sm flex items-center justify-center">
+        </main>
+        
+        <div id="loading-overlay" class="hidden absolute inset-0 z-50 bg-white/70 backdrop-blur-sm flex items-center justify-center">
             <div class="text-center w-64">
                 <div class="loader"></div>
                 <p id="progress-text" class="text-lg font-semibold mt-4">Loading...</p>
