@@ -35,12 +35,12 @@
                     <h2 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em]">Diptych Creator</h2>
                 </div>
             </header>
-            <div class="gap-1 px-6 flex flex-1 justify-center py-5 overflow-hidden">
-                <div class="layout-content-container flex flex-col max-w-[920px] flex-1">
+            <div id="main-content" class="gap-1 px-6 flex flex-1 justify-center py-5 overflow-hidden">
+                <div id="canvas-panel" class="layout-content-container flex flex-col flex-1 transition-all duration-300">
                     <h2 class="text-[#1c0e0d] tracking-light text-[28px] font-bold leading-tight px-4 text-left pb-3 pt-5">Diptych Canvas</h2>
                     <div id="diptych-pairs-container" class="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4 p-4 overflow-y-auto"></div>
                 </div>
-                <div class="layout-content-container flex flex-col w-[360px] border-l border-solid border-l-[#f4e7e7]">
+                <div id="right-panel" class="layout-content-container flex flex-col w-[360px] border-l border-solid border-l-[#f4e7e7] transition-all duration-300">
                     <h3 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Image Pool (<span id="unpaired-count">0</span>)</h3>
                     <div id="image-pool" class="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-3 p-4 overflow-y-auto h-1/2"></div>
                     <h3 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-6">Configuration</h3>
@@ -55,13 +55,17 @@
                                 <option value="5x7">5 x 7 (Portrait)</option>
                             </select>
                          </label>
+                         <label class="config-label flex-row items-center justify-between">
+                            <span>Fit Mode (vs. Crop/Fill)</span>
+                            <input type="checkbox" id="fit-mode-toggle" class="form-checkbox h-5 w-5 rounded text-red-700 focus:ring-red-600">
+                         </label>
                          <label class="config-label">
                             <span>Gap (px)</span>
-                            <input type="range" id="output-gap" min="0" max="100" value="10" class="w-full">
+                            <input type="range" id="output-gap" min="0" max="100" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                          </label>
-                         <label class="config-label flex-row items-center">
+                         <label class="config-label flex-row items-center justify-between">
                             <span>Download as .zip</span>
-                            <input type="checkbox" id="zip-toggle" class="form-checkbox" checked>
+                            <input type="checkbox" id="zip-toggle" class="form-checkbox h-5 w-5 rounded text-red-700 focus:ring-red-600" checked>
                          </label>
                          <input type="hidden" id="output-dpi" value="300">
                     </div>
@@ -74,9 +78,12 @@
             </div>
         </div>
         <div id="loading-overlay" class="hidden absolute inset-0 z-30 bg-white/70 backdrop-blur-sm flex items-center justify-center">
-            <div class="text-center">
+            <div class="text-center w-64">
                 <div class="loader"></div>
-                <p class="text-lg font-semibold mt-4">Loading...</p>
+                <p id="progress-text" class="text-lg font-semibold mt-4">Loading...</p>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
             </div>
         </div>
     </div>

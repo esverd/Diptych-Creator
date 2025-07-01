@@ -1,3 +1,4 @@
+/* --- Base and Fonts --- */
 :root {
     --brand-red: #d0140a;
     --text-dark: #1c0e0d;
@@ -8,14 +9,16 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: Manrope, "Noto Sans", sans-serif;
     margin: 0;
     background-color: var(--bg-main);
 }
 
-.hidden { display: none !important; }
+.hidden {
+    display: none !important;
+}
 
-/* --- BUTTON STYLES --- */
+/* --- Buttons --- */
 .action-button {
     display: flex;
     cursor: pointer;
@@ -23,28 +26,19 @@ body {
     justify-content: center;
     border-radius: 9999px;
     height: 40px;
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
+    padding: 0 1.25rem;
     background-color: var(--brand-red);
     color: var(--bg-main);
     font-size: 0.875rem;
     font-weight: 700;
     transition: background-color 0.2s;
+    border: none;
 }
-.action-button:hover { background-color: #a81008; }
-
-.secondary-button { /* For future buttons like Save/Load */
-    background-color: transparent;
-    border: 1px solid var(--border-mid);
-    color: var(--text-dark);
-    padding: 0.5rem 1rem;
-    border-radius: 9999px;
-    font-weight: 600;
-    transition: background-color 0.2s, color 0.2s;
+.action-button:hover {
+    background-color: #a81008;
 }
-.secondary-button:hover { background-color: #fbeeee; }
 
-/* --- LAYOUT & CONFIG --- */
+/* --- Configuration Panel --- */
 .config-label {
     display: flex;
     flex-direction: column;
@@ -53,19 +47,52 @@ body {
     font-weight: 600;
     color: var(--text-dark);
 }
+
+.custom-select, .form-checkbox {
+    border-color: var(--border-mid) !important;
+    background-color: var(--bg-main) !important;
+}
+.custom-select:focus, .form-checkbox:focus {
+    outline: 0 !important;
+    box-shadow: none !important;
+    border-color: var(--border-mid) !important;
+    ring: 0 !important;
+}
+.form-checkbox:checked {
+    background-color: var(--brand-red) !important;
+}
 .custom-select {
     appearance: none;
     background-image: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724px%27 height=%2724px%27 fill=%27rgb(156,78,73)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e');
     background-position: right 0.75rem center;
     background-repeat: no-repeat;
     background-size: 1.5em;
-    border-color: var(--border-mid);
-    background-color: var(--bg-main);
     padding-right: 2.5rem;
 }
-.custom-select:focus { outline: 0; box-shadow: none; border-color: var(--border-mid); }
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -5px;
+  background-color: var(--brand-red);
+  height: 1.25rem;
+  width: 1.25rem;
+  border-radius: 99px;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  background-color: #e8d0ce;
+  border-radius: 0.5rem;
+  height: 0.5rem;
+}
 
-/* --- DRAG & DROP --- */
+
+/* --- Drag & Drop & Previews --- */
 .img-container {
     aspect-ratio: 1 / 1;
     border-radius: 0.75rem;
@@ -73,6 +100,7 @@ body {
     cursor: grab;
     position: relative;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background-color: #eee;
 }
 .img-container:active { cursor: grabbing; }
 .img-container img { width: 100%; height: 100%; object-fit: cover; }
@@ -84,48 +112,35 @@ body {
     gap: 8px;
     padding: 8px;
     background-color: #fdfbfb;
+    transition: background-image 0.2s ease-in-out;
 }
-
 .diptych-half {
     flex: 1;
-    height: 150px; /* Give it a default height */
+    height: 150px;
     border-radius: 6px;
     background-color: #f7f2f2;
 }
-
-/* --- IMAGE CONTROLS (ROTATE/CLEAR) --- */
 .img-controls {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    display: flex;
-    gap: 4px;
-    opacity: 0; /* Hidden by default */
-    pointer-events: none; /* Can't be clicked when hidden */
-    transition: opacity 0.2s;
+    position: absolute; top: 4px; right: 4px; display: flex; gap: 4px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
 }
-/* FIX: Only show controls when an image is inside the Diptych Canvas */
 #diptych-pairs-container .img-container:hover .img-controls {
-    opacity: 1;
-    pointer-events: auto;
+    opacity: 1; pointer-events: auto;
 }
 .control-btn {
     background: rgba(255,255,255,0.8);
     backdrop-filter: blur(4px);
     border: none;
     border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 .control-btn:hover { background-color: white; }
 .control-btn svg { width: 18px; height: 18px; color: #333; }
 
-/* --- LOADER --- */
+
+/* --- Loading Overlay & Progress Bar --- */
 .loader {
     width: 60px; height: 60px;
     border: 6px solid #f4e7e7;
@@ -134,3 +149,18 @@ body {
     animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.progress-bar-container {
+    width: 100%;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    margin-top: 1rem;
+    height: 10px;
+    overflow: hidden;
+}
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background-color: var(--brand-red);
+    transition: width 0.3s ease-in-out;
+}
