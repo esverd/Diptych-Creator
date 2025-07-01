@@ -1,4 +1,5 @@
 source-images
+OUTPUTS
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

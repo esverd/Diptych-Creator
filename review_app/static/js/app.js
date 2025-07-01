@@ -1,30 +1,33 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Element Selectors ---
-    const selectFolderBtn = document.getElementById('select-folder-btn');
-    const selectFilesBtn = document.getElementById('select-files-btn');
     const appContainer = document.getElementById('app-container');
     const welcomeScreen = document.getElementById('welcome-screen');
     const imagePool = document.getElementById('image-pool');
     const diptychPairsContainer = document.getElementById('diptych-pairs-container');
-    const generateBtn = document.getElementById('generate-btn');
     const loadingOverlay = document.getElementById('loading-overlay');
     const unpairedCount = document.getElementById('unpaired-count');
+
+    // Button Selectors
+    const selectFolderBtn = document.getElementById('select-folder-btn');
+    const selectFilesBtn = document.getElementById('select-files-btn');
+    const loadSessionBtn = document.getElementById('load-session-btn');
+    const saveSessionBtn = document.getElementById('save-session-btn');
+    const generateBtn = document.getElementById('generate-btn');
 
     // --- Event Listeners ---
     selectFolderBtn.addEventListener('click', () => triggerPathSelection(true));
     selectFilesBtn.addEventListener('click', () => triggerPathSelection(false));
+    // NOTE: Add event listeners for Save/Load later
     generateBtn.addEventListener('click', generateDiptychs);
     
     // --- Core Functions ---
     async function triggerPathSelection(isFolder) {
-        // Step 1: Tell the Python backend to open a native file/folder dialog
         await fetch('/select_paths', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_folder: isFolder })
         });
 
-        // Step 2: Now that Python has the paths, ask for them
         const response = await fetch('/get_images');
         const imagePaths = await response.json();
         
@@ -35,36 +38,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function setupWorkbench(imagePaths) {
+    function setupWorkbench(imagePaths, pairings = []) {
         welcomeScreen.classList.add('hidden');
         appContainer.classList.remove('hidden');
-        generateBtn.classList.remove('hidden');
 
         imagePool.innerHTML = '';
         diptychPairsContainer.innerHTML = '';
 
-        // Auto-pair chronologically as a starting suggestion
-        const unpaired = [...imagePaths];
-        while (unpaired.length >= 2) {
-            const pair = [unpaired.shift(), unpaired.shift()];
-            const slot = createDiptychSlot();
-            pair.forEach(path => {
-                const imgContainer = createImageElement(path);
-                const targetHalf = slot.querySelector(pair.indexOf(path) === 0 ? '[data-position="left"]' : '[data-position="right"]');
-                targetHalf.innerHTML = ''; // Clear "Drop..." text
-                targetHalf.appendChild(imgContainer);
-            });
-            diptychPairsContainer.appendChild(slot);
-        }
+        const pairedPaths = new Set(pairings.flat());
+        const unpaired = imagePaths.filter(p => !pairedPaths.has(p));
 
-        // Add remaining single images to the pool
-        unpaired.forEach(path => {
-            const imgContainer = createImageElement(path);
-            imagePool.appendChild(imgContainer);
+        // Create slots for existing pairs
+        pairings.forEach(pair => {
+            const slot = createDiptychSlot();
+            if (pair[0]) slot.querySelector('[data-position="left"]').appendChild(createImageElement(pair[0]));
+            if (pair[1]) slot.querySelector('[data-position="right"]').appendChild(createImageElement(pair[1]));
+            diptychPairsContainer.appendChild(slot);
         });
 
-        // Add one empty slot for flexibility
-        diptychPairsContainer.appendChild(createDiptychSlot());
+        // Add remaining unpaired images to the pool
+        unpaired.forEach(path => {
+            imagePool.appendChild(createImageElement(path));
+        });
+
+        // Add a few empty slots for flexibility
+        for (let i = 0; i < 5; i++) {
+             diptychPairsContainer.appendChild(createDiptychSlot());
+        }
         
         updateUnpairedCount();
         initializeDragAndDrop();
@@ -76,9 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
         container.dataset.path = path;
         
         const img = document.createElement('img');
-        // This route now works because app.py has the full path
         img.src = `/image_preview?path=${encodeURIComponent(path)}`;
-        img.title = path; // Show full path on hover
+        img.title = path.split(/[\\/]/).pop(); // Show only filename on hover
         container.appendChild(img);
         return container;
     }
@@ -87,8 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const slot = document.createElement('div');
         slot.className = 'diptych-slot';
         slot.innerHTML = `
-            <div class="diptych-half" data-position="left"><span>Drop Left</span></div>
-            <div class="diptych-half" data-position="right"><span>Drop Right</span></div>
+            <div class="diptych-half" data-position="left"></div>
+            <div class="diptych-half" data-position="right"></div>
         `;
         return slot;
     }
@@ -109,21 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 group: 'shared',
                 animation: 150,
                 onAdd: function (evt) {
-                    const item = evt.item;
-                    // Ensure only one image per half
                     if (this.el.children.length > 1) {
-                        const oldItem = this.el.children[0] === item ? this.el.children[1] : this.el.children[0];
+                        const oldItem = this.el.children[0] === evt.item ? this.el.children[1] : this.el.children[0];
                         imagePool.appendChild(oldItem);
                     }
-                    if (this.el.querySelector('span')) {
-                        this.el.querySelector('span').style.display = 'none';
-                    }
                     updateUnpairedCount();
-                },
-                onRemove: function(evt) {
-                     if (this.el.children.length === 0) {
-                        this.el.innerHTML = `<span>Drop ${this.el.dataset.position.charAt(0).toUpperCase() + this.el.dataset.position.slice(1)}</span>`;
-                    }
                 }
             });
         });
@@ -149,8 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const sizeInput = document.getElementById('output-size').value.split('x');
         const config = {
-            width: sizeInput[0] || 6,
-            height: sizeInput[1] || 4,
+            width: sizeInput[0].trim(),
+            height: sizeInput[1].trim(),
             dpi: document.getElementById('output-dpi').value,
             gap: document.getElementById('output-gap').value
         };
@@ -165,15 +154,14 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingOverlay.classList.add('hidden');
         
         if (result.zip_path) {
-            // Trigger download via a hidden link
             const a = document.createElement('a');
             a.href = `/download_zip?path=${encodeURIComponent(result.zip_path)}&name=${encodeURIComponent(result.download_name)}`;
             a.download = result.download_name;
             document.body.appendChild(a);
-            a.click();
+a.click();
             document.body.removeChild(a);
         } else {
-            alert("An error occurred during diptych generation. See console for details.");
+            alert("An error occurred during diptych generation.");
         }
     }
 });
