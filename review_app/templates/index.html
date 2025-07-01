@@ -38,11 +38,15 @@
             <div id="main-content" class="gap-1 px-6 flex flex-1 justify-center py-5 overflow-hidden">
                 <div id="canvas-panel" class="layout-content-container flex flex-col flex-1 transition-all duration-300">
                     <h2 class="text-[#1c0e0d] tracking-light text-[28px] font-bold leading-tight px-4 text-left pb-3 pt-5">Diptych Canvas</h2>
-                    <div id="diptych-pairs-container" class="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4 p-4 overflow-y-auto"></div>
+                    <div id="diptych-pairs-container" class="grid grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-4 p-4 overflow-y-auto">
+                        <!-- Canvas slots will be dynamically inserted here -->
+                    </div>
                 </div>
                 <div id="right-panel" class="layout-content-container flex flex-col w-[360px] border-l border-solid border-l-[#f4e7e7] transition-all duration-300">
                     <h3 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Image Pool (<span id="unpaired-count">0</span>)</h3>
-                    <div id="image-pool" class="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-3 p-4 overflow-y-auto h-1/2"></div>
+                    <div id="image-pool" class="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-3 p-4 overflow-y-auto h-1/2">
+                        <!-- Draggable image thumbnails will be inserted here -->
+                    </div>
                     <h3 class="text-[#1c0e0d] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-6">Configuration</h3>
                     <div class="flex flex-col gap-4 px-4 py-3">
                          <label class="config-label">
@@ -54,10 +58,6 @@
                                 <option value="4x6">4 x 6 (Portrait)</option>
                                 <option value="5x7">5 x 7 (Portrait)</option>
                             </select>
-                         </label>
-                         <label class="config-label flex-row items-center justify-between">
-                            <span>Fit Mode (vs. Crop/Fill)</span>
-                            <input type="checkbox" id="fit-mode-toggle" class="form-checkbox h-5 w-5 rounded text-red-700 focus:ring-red-600">
                          </label>
                          <label class="config-label">
                             <span>Gap (px)</span>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Manrope%3Awght%40400%3B500%3B700%3B800&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<title>Diptych Master</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style type="text/tailwindcss">
+    :root {
+      --primary-color: #d0130a;
+      --secondary-color: #f3f4f6;
+      --accent-color: #e5e7eb;
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+      --border-color: #d1d5db;
+      --select-button-svg: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724px%27 height=%2724px%27 fill=%27rgb(107,114,128)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e');
+    }
+    .btn {
+      @apply flex items-center justify-center rounded-lg h-10 px-4 text-sm font-bold leading-normal tracking-[0.015em] transition-colors duration-200;
+    }
+    .btn-primary {
+      @apply bg-[var(--primary-color)] text-white hover:bg-red-700;
+    }
+    .btn-secondary {
+      @apply bg-[var(--accent-color)] text-[var(--text-primary)] hover:bg-gray-300;
+    }
+    .form-input-custom {
+      @apply flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[var(--text-primary)] focus:outline-0 focus:ring-0 border border-[var(--border-color)] bg-[var(--secondary-color)] focus:border-[var(--primary-color)] h-10 bg-[image:--select-button-svg] placeholder:text-[var(--text-secondary)] px-3 py-2 text-sm font-normal leading-normal;
+    }
+    .icon-btn {
+      @apply flex items-center justify-center size-10 rounded-lg bg-[var(--accent-color)] text-[var(--text-primary)] hover:bg-gray-300 transition-colors duration-200;
+    }
+  </style>
+</head>
+<body class="bg-white text-[var(--text-primary)] font-manrope" style='font-family: Manrope, "Noto Sans", sans-serif;'>
+<div class="relative flex size-full min-h-screen flex-col overflow-x-hidden">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[var(--accent-color)] px-4 py-3 sm:px-6">
+<div class="flex items-center gap-3">
+<div class="size-7 text-[var(--primary-color)]">
+<svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_6_535)">
+<path clip-rule="evenodd" d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z" fill="currentColor" fill-rule="evenodd"></path>
+</g>
+<defs>
+<clipPath id="clip0_6_535"><rect fill="white" height="48" width="48"></rect></clipPath>
+</defs>
+</svg>
+</div>
+<h1 class="text-lg font-bold tracking-tight">Diptych Master</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="btn btn-primary"><span class="truncate">Download</span></button>
+<button class="icon-btn md:hidden">
+<svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg">
+<line x1="3" x2="21" y1="12" y2="12"></line>
+<line x1="3" x2="21" y1="6" y2="6"></line>
+<line x1="3" x2="21" y1="18" y2="18"></line>
+</svg>
+</button>
+</div>
+</header>
+<main class="flex flex-1">
+<aside class="w-72 border-r border-[var(--accent-color)] p-4 space-y-4 hidden md:block">
+<h2 class="text-lg font-semibold mb-3">Your Images</h2>
+<div class="grid grid-cols-2 gap-3">
+<div class="aspect-square bg-[var(--secondary-color)] rounded-lg flex items-center justify-center text-[var(--text-secondary)] text-xs cursor-grab active:cursor-grabbing">Image 1</div>
+<div class="aspect-square bg-[var(--secondary-color)] rounded-lg flex items-center justify-center text-[var(--text-secondary)] text-xs cursor-grab active:cursor-grabbing">Image 2</div>
+<div class="aspect-square bg-[var(--secondary-color)] rounded-lg flex items-center justify-center text-[var(--text-secondary)] text-xs cursor-grab active:cursor-grabbing">Image 3</div>
+<div class="aspect-square bg-[var(--secondary-color)] rounded-lg flex items-center justify-center text-[var(--text-secondary)] text-xs cursor-grab active:cursor-grabbing">Image 4</div>
+</div>
+<button class="btn btn-secondary w-full mt-4">
+<svg class="mr-2" fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+<polyline points="17 8 12 3 7 8"></polyline>
+<line x1="12" x2="12" y1="3" y2="15"></line>
+</svg>
+          Upload More
+        </button>
+</aside>
+<div class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-50">
+<div class="w-full max-w-2xl aspect-[2/1] bg-white rounded-xl shadow-2xl border border-[var(--border-color)] overflow-hidden">
+<div class="grid grid-cols-2 h-full">
+<div class="bg-gray-200 flex items-center justify-center text-gray-400 border-r border-[var(--border-color)] cursor-pointer hover:bg-gray-300 transition-colors">
+<div class="text-center">
+<svg class="mx-auto mb-2 text-gray-500" fill="none" height="48" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="48" xmlns="http://www.w3.org/2000/svg">
+<rect height="18" rx="2" ry="2" width="18" x="3" y="3"></rect>
+<circle cx="8.5" cy="8.5" r="1.5"></circle>
+<polyline points="21 15 16 10 5 21"></polyline>
+</svg>
+<p class="text-sm">Drop Image 1 Here</p>
+</div>
+</div>
+<div class="bg-gray-200 flex items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-300 transition-colors">
+<div class="text-center">
+<svg class="mx-auto mb-2 text-gray-500" fill="none" height="48" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="48" xmlns="http://www.w3.org/2000/svg">
+<rect height="18" rx="2" ry="2" width="18" x="3" y="3"></rect>
+<circle cx="8.5" cy="8.5" r="1.5"></circle>
+<polyline points="21 15 16 10 5 21"></polyline>
+</svg>
+<p class="text-sm">Drop Image 2 Here</p>
+</div>
+</div>
+</div>
+</div>
+<p class="mt-4 text-sm text-[var(--text-secondary)]">Drag images from the left panel or <label class="text-[var(--primary-color)] font-medium hover:underline cursor-pointer" for="upload-input">click here to upload</label>.</p>
+<input accept="image/*" class="hidden" id="upload-input" multiple="" type="file"/>
+</div>
+<aside class="w-72 border-l border-[var(--accent-color)] p-4 space-y-6 hidden md:block">
+<div>
+<h3 class="text-sm font-semibold mb-2 text-[var(--text-secondary)] uppercase tracking-wider">Layout</h3>
+<div class="space-y-3">
+<div>
+<label class="block text-xs font-medium text-[var(--text-primary)] pb-1" for="image-fitting">Image Fitting</label>
+<select class="form-input-custom" id="image-fitting" name="image-fitting">
+<option value="crop">Cropped</option>
+<option value="letterbox">Letterboxed</option>
+</select>
+</div>
+<div>
+<div class="flex items-center justify-between">
+<label class="block text-xs font-medium text-[var(--text-primary)]" for="border-size">Border Size</label>
+<p class="text-xs text-[var(--text-secondary)]">10 px</p>
+</div>
+<input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="border-size" max="50" min="0" name="border-size" type="range" value="10"/>
+</div>
+</div>
+</div>
+<div>
+<h3 class="text-sm font-semibold mb-2 text-[var(--text-secondary)] uppercase tracking-wider">Image 1</h3>
+<div class="space-y-3">
+<div class="flex gap-2">
+<button class="btn btn-secondary flex-1 text-xs">
+<svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                    Position
+                </button>
+<button class="btn btn-secondary flex-1 text-xs">
+<svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    Rotate
+                </button>
+</div>
+<button class="btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 w-full text-xs">
+<svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Remove
+            </button>
+</div>
+</div>
+<div>
+<h3 class="text-sm font-semibold mb-2 text-[var(--text-secondary)] uppercase tracking-wider">Image 2</h3>
+<div class="space-y-3">
+<div class="flex gap-2">
+<button class="btn btn-secondary flex-1 text-xs">
+<svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                    Position
+                </button>
+<button class="btn btn-secondary flex-1 text-xs">
+<svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    Rotate
+                </button>
+</div>
+<button class="btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 w-full text-xs">
+<svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Remove
+            </button>
+</div>
+</div>
+<div class="pt-4 border-t border-[var(--accent-color)]">
+<button class="btn btn-primary w-full h-11 text-sm">
+<svg class="mr-2" fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+<polyline points="7 10 12 15 17 10"></polyline>
+<line x1="12" x2="12" y1="15" y2="3"></line>
+</svg>
+            Download Diptych
+          </button>
+</div>
+</aside>
+</main>
+<footer class="text-center py-4 border-t border-[var(--accent-color)] text-xs text-[var(--text-secondary)] md:hidden">
+<p>© 2023 Diptych Master.</p>
+</footer>
+</div>
+
+</body></html>
