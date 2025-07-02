@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isGenerating: false,
     };
     const PREGEN_DELAY = 1000;
-    let canvasSortableInstances = []; // To keep track of Sortable instances
+    let canvasSortableInstances = [];
 
     // --- ELEMENT SELECTORS ---
     const fileUploader = document.getElementById('file-uploader');
@@ -18,12 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const unpairedCount = document.getElementById('unpaired-count');
     const mainCanvas = document.getElementById('main-canvas');
     const canvasGrid = document.getElementById('canvas-grid');
-    const diptychTrayContainer = document.getElementById('bottom-bar').querySelector('.flex');
     const diptychTray = document.getElementById('diptych-tray');
     const leftPanel = document.getElementById('left-panel');
     const rightPanel = document.getElementById('right-panel');
     
-    // Buttons & Labels
     const selectImagesBtn = document.getElementById('select-images-btn');
     const uploadMoreBtn = document.getElementById('upload-more-btn');
     const uploadLabel = document.getElementById('upload-label');
@@ -31,17 +29,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
 
     // Config Controls
+    const outputSizeSelect = document.getElementById('output-size');
+    const outputDpiSelect = document.getElementById('output-dpi');
     const imageFittingSelect = document.getElementById('image-fitting');
     const borderSizeSlider = document.getElementById('border-size');
     const borderSizeValue = document.getElementById('border-size-value');
     const zipToggle = document.getElementById('zip-toggle');
     
-    // Loading Overlay
     const loadingOverlay = document.getElementById('loading-overlay');
     const progressText = document.getElementById('progress-text');
     const progressBar = document.getElementById('progress-bar');
 
-    // SVG Icons for mobile menu button
     const hamburgerIcon = `<svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="18" y2="18"></line></svg>`;
     const closeIcon = `<svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><line x1="18" x2="6" y1="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>`;
 
@@ -62,11 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.addEventListener('click', generateDiptychs);
         mobileMenuBtn.addEventListener('click', toggleMobilePanels);
 
+        outputSizeSelect.addEventListener('change', handleConfigChange);
+        outputDpiSelect.addEventListener('change', handleConfigChange);
         imageFittingSelect.addEventListener('change', handleConfigChange);
-        borderSizeSlider.addEventListener('input', () => {
-            borderSizeValue.textContent = `${borderSizeSlider.value} px`;
-        });
-        borderSizeSlider.addEventListener('change', handleConfigChange);
+        borderSizeSlider.addEventListener('input', updateRealtimeStyles);
 
         document.addEventListener('click', (e) => {
             if (e.target.closest('.btn-rotate')) handleRotate(e);
@@ -78,13 +75,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('scroll-right-btn').addEventListener('click', () => scrollTray(200));
     }
 
-    // --- UI LOGIC ---
+    // --- UI LOGIC & STATE ---
     function showAppContainer() {
         if (!welcomeScreen.classList.contains('hidden')) {
             welcomeScreen.classList.add('hidden');
             appContainer.classList.remove('hidden');
-            
-            if (window.innerWidth >= 768) { // Tailwind's 'md' breakpoint
+            if (window.innerWidth >= 768) {
                 leftPanel.classList.remove('hidden');
                 rightPanel.classList.remove('hidden');
             }
@@ -92,55 +88,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateMobileMenuIcon() {
-        if (leftPanel.classList.contains('hidden') && rightPanel.classList.contains('hidden')) {
-            mobileMenuBtn.innerHTML = hamburgerIcon;
-        } else {
-            mobileMenuBtn.innerHTML = closeIcon;
-        }
+        mobileMenuBtn.innerHTML = (leftPanel.classList.contains('hidden') && rightPanel.classList.contains('hidden')) ? hamburgerIcon : closeIcon;
     }
 
     function toggleMobilePanels() {
         const isLeftHidden = leftPanel.classList.contains('hidden');
         const isRightHidden = rightPanel.classList.contains('hidden');
-
-        if (!isLeftHidden) {
-            leftPanel.classList.add('hidden');
-            rightPanel.classList.remove('hidden');
-        } else if (!isRightHidden) {
-            rightPanel.classList.add('hidden');
-        } else {
-            leftPanel.classList.remove('hidden');
-        }
+        if (!isLeftHidden) { leftPanel.classList.add('hidden'); rightPanel.classList.remove('hidden'); } 
+        else if (!isRightHidden) { rightPanel.classList.add('hidden'); } 
+        else { leftPanel.classList.remove('hidden'); }
         updateMobileMenuIcon();
     }
 
-    // --- CORE LOGIC ---
     async function handleFileUpload(event) {
         const files = event.target.files;
         if (!files.length) return;
-
         showLoading('Uploading images...');
         const formData = new FormData();
-        const newFilenames = [];
-        for (const file of files) {
-            formData.append('files[]', file);
-            newFilenames.push(file.name);
-        }
-
+        const newFilenames = Array.from(files).map(f => f.name);
+        for (const file of files) formData.append('files[]', file);
+        
         showAppContainer();
         const newImages = newFilenames.map(filename => ({ path: filename }));
         newImages.forEach(newImg => {
-            if (!appState.images.some(existing => existing.path === newImg.path)) {
-                appState.images.push(newImg);
-            }
+            if (!appState.images.some(existing => existing.path === newImg.path)) appState.images.push(newImg);
         });
         renderImagePool();
 
         try {
-            const response = await fetch('/upload_images', {
-                method: 'POST',
-                body: formData
-            });
+            const response = await fetch('/upload_images', { method: 'POST', body: formData });
             if (!response.ok) throw new Error(`Upload failed: ${response.statusText}`);
             hideLoading();
         } catch (error) {
@@ -156,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function addNewDiptych(andSwitch = true) {
         const newDiptych = {
             image1: null, image2: null,
-            config: { fit_mode: 'fill', gap: 10 }
+            config: { fit_mode: 'fill', gap: 10, width: 10, height: 8, dpi: 300 }
         };
         appState.diptychs.push(newDiptych);
         if (andSwitch) appState.activeDiptychIndex = appState.diptychs.length - 1;
@@ -175,9 +151,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleConfigChange() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
+        const [width, height] = outputSizeSelect.value.split('x').map(parseFloat);
+        activeDiptych.config.width = width;
+        activeDiptych.config.height = height;
+        activeDiptych.config.dpi = parseInt(outputDpiSelect.value, 10);
         activeDiptych.config.fit_mode = imageFittingSelect.value;
-        activeDiptych.config.gap = parseInt(borderSizeSlider.value, 10);
-        debouncedPreviewUpdate();
+        renderActiveDiptych();
+    }
+    
+    function updateRealtimeStyles() {
+        const gap = borderSizeSlider.value;
+        borderSizeValue.textContent = `${gap} px`;
+        const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
+        if (activeDiptych) activeDiptych.config.gap = parseInt(gap, 10);
+        
+        canvasGrid.style.gap = `${gap}px`;
+        mainCanvas.style.padding = `${gap}px`;
     }
 
     function handleRotate(e) {
@@ -186,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageKey = `image${slot}`;
         if (activeDiptych && activeDiptych[imageKey]) {
             activeDiptych[imageKey].rotation = ((activeDiptych[imageKey].rotation || 0) + 90) % 360;
-            debouncedPreviewUpdate();
+            renderActiveDiptych();
         }
     }
 
@@ -203,11 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function handleTrayClick(e) {
         const item = e.target.closest('.diptych-tray-item');
-        if (item) {
-            switchActiveDiptych(parseInt(item.dataset.index, 10));
-        } else if (e.target.closest('.add-diptych-btn')) {
-            addNewDiptych();
-        }
+        if (item) switchActiveDiptych(parseInt(item.dataset.index, 10));
+        else if (e.target.closest('.add-diptych-btn')) addNewDiptych();
     }
     
     function scrollTray(amount) {
@@ -224,22 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const thumbContainer = document.createElement('div');
             thumbContainer.className = 'img-thumbnail thumbnail-loading';
             thumbContainer.dataset.path = imgData.path;
-
             const imgEl = document.createElement('img');
             imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}`;
-            
-            imgEl.onload = () => {
-                imgEl.classList.add('loaded');
-                thumbContainer.classList.remove('thumbnail-loading');
-            };
-            imgEl.onerror = () => {
-                setTimeout(() => { imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}?t=${new Date().getTime()}` }, 1000);
-            };
-
+            imgEl.onload = () => { imgEl.classList.add('loaded'); thumbContainer.classList.remove('thumbnail-loading'); };
+            imgEl.onerror = () => { setTimeout(() => { imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}?t=${new Date().getTime()}` }, 1000); };
             const filenameDiv = document.createElement('div');
             filenameDiv.className = 'filename';
             filenameDiv.textContent = imgData.path;
-
             thumbContainer.append(imgEl, filenameDiv);
             imagePool.appendChild(thumbContainer);
         });
@@ -249,29 +226,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
 
+        outputSizeSelect.value = `${activeDiptych.config.width}x${activeDiptych.config.height}`;
+        outputDpiSelect.value = activeDiptych.config.dpi;
         imageFittingSelect.value = activeDiptych.config.fit_mode;
         borderSizeSlider.value = activeDiptych.config.gap;
         borderSizeValue.textContent = `${activeDiptych.config.gap} px`;
         
         canvasGrid.innerHTML = '';
-        mainCanvas.style.backgroundImage = 'none';
-
+        canvasGrid.style.gap = `${activeDiptych.config.gap}px`;
+        mainCanvas.style.padding = `${activeDiptych.config.gap}px`;
+        
         for (let i = 1; i <= 2; i++) {
             const imageKey = `image${i}`;
             const controls = document.getElementById(`image-${i}-controls`);
             const dropZone = createDropZone(i);
-
             if (activeDiptych[imageKey]) {
                 controls.classList.remove('hidden');
                 dropZone.classList.add('has-image');
+                updateSingleSlotPreview(dropZone, activeDiptych[imageKey]);
             } else {
                 controls.classList.add('hidden');
                 dropZone.classList.remove('has-image');
             }
             canvasGrid.appendChild(dropZone);
         }
-        debouncedPreviewUpdate();
-        // **CRITICAL FIX**: Initialize the drop zones AFTER they are created and in the DOM.
+        
+        updateTrayPreview(diptychTray.querySelector(`[data-index='${appState.activeDiptychIndex}'] .diptych-tray-preview`), activeDiptych);
         initializeCanvasDropZones();
     }
     
@@ -306,43 +286,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // --- PREVIEWS ---
-    const debouncedPreviewUpdate = () => {
-        const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-        if (!activeDiptych) return;
-        const key = `diptych-${appState.activeDiptychIndex}`;
-        clearTimeout(appState.pregenDebounceTimers[key]);
-        appState.pregenDebounceTimers[key] = setTimeout(() => {
-            updateMainCanvasPreview(activeDiptych);
-            const trayPreviewEl = diptychTray.querySelector(`[data-index='${appState.activeDiptychIndex}'] .diptych-tray-preview`);
-            if(trayPreviewEl) updateTrayPreview(trayPreviewEl, activeDiptych);
-        }, PREGEN_DELAY);
-    };
-
-    async function updateMainCanvasPreview(diptych) {
-        if (!diptych.image1 || !diptych.image2) {
-            mainCanvas.style.backgroundImage = 'none';
-            return;
-        }
-        const pair = [diptych.image1, diptych.image2];
-        const config = { ...diptych.config, width: 10, height: 5, dpi: 72 };
-        try {
-            const response = await fetch('/get_preview', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pair, config })
-            });
-            if (response.ok) {
-                const imageBlob = await response.blob();
-                mainCanvas.style.backgroundImage = `url(${URL.createObjectURL(imageBlob)})`;
-                fetch('/pregenerate_diptych', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pair, config: { ...config, dpi: 300 } })
-                });
-            }
-        } catch (error) { console.error("Preview failed:", error); }
+    function updateSingleSlotPreview(slotElement, image) {
+        // *** PREVIEW FIX: Use thumbnail directly for single-image previews ***
+        slotElement.style.backgroundImage = `url(/thumbnail/${encodeURIComponent(image.path)})`;
+        slotElement.style.backgroundSize = 'cover';
+        slotElement.style.backgroundPosition = 'center';
+        slotElement.style.backgroundRepeat = 'no-repeat';
+        slotElement.style.transform = `rotate(${image.rotation || 0}deg)`;
     }
     
     async function updateTrayPreview(element, diptych) {
+        if (!element) return;
         if (!diptych.image1 || !diptych.image2) {
             element.style.backgroundImage = 'none';
             return;
@@ -369,67 +323,54 @@ document.addEventListener('DOMContentLoaded', () => {
             animation: 150,
             sort: false,
         });
-        // This function is now called from renderActiveDiptych
     }
     
     function initializeCanvasDropZones() {
-        // Clean up old instances to prevent memory leaks
         canvasSortableInstances.forEach(instance => instance.destroy());
         canvasSortableInstances = [];
-
         document.querySelectorAll('#canvas-grid .drop-zone').forEach(zone => {
             const instance = new Sortable(zone, {
-                group: 'shared',
-                animation: 150,
+                group: 'shared', animation: 150,
                 onAdd: function (evt) {
                     const path = evt.item.dataset.path;
                     const slot = evt.to.dataset.slot;
-
                     evt.item.parentElement.removeChild(evt.item);
-
                     if (slot) {
                         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
                         const imageKey = `image${slot}`;
                         activeDiptych[imageKey] = { path, rotation: 0 };
-                        
-                        // Re-render the entire view to ensure consistency
                         renderImagePool();
                         renderActiveDiptych();
                     }
                 },
-                onStart: function () {
-                    document.body.classList.add('is-dragging');
-                },
-                onEnd: function () {
-                    document.body.classList.remove('is-dragging');
-                },
-                // Add visual feedback on hover
-                onMove: function (evt) {
+                onStart: () => document.body.classList.add('is-dragging'),
+                onEnd: () => document.body.classList.remove('is-dragging'),
+                onMove: (evt) => {
                     document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-over'));
-                    if (evt.related.classList.contains('drop-zone')) {
-                        evt.related.classList.add('drag-over');
-                    }
+                    if (evt.related.classList.contains('drop-zone')) evt.related.classList.add('drag-over');
                 }
             });
             canvasSortableInstances.push(instance);
         });
     }
 
-
     // --- FINAL GENERATION ---
     async function generateDiptychs() {
         if (appState.isGenerating) return;
         const pairsToGenerate = appState.diptychs.filter(d => d.image1 && d.image2);
+        
+        // *** BUG FIX: Check for pairs *before* showing loading screen ***
         if (pairsToGenerate.length === 0) {
-            alert("Please create at least one complete diptych pair.");
+            alert("Please create at least one complete diptych pair before downloading.");
             return;
         }
+
         appState.isGenerating = true;
         showLoading('Preparing generation...', 0);
         const payload = {
             pairs: pairsToGenerate.map(d => ({
                 pair: [d.image1, d.image2],
-                config: { ...d.config, width: 10, height: 8, dpi: 300 }
+                config: d.config
             })),
             zip: zipToggle.checked
         };

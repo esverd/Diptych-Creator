@@ -69,7 +69,7 @@
             </aside>
 
             <div class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-50 relative">
-                <div id="main-canvas" class="w-full max-w-2xl aspect-[2/1] bg-white rounded-xl shadow-2xl border border-[var(--border-color)] overflow-hidden bg-cover bg-center bg-no-repeat">
+                <div id="main-canvas" class="w-full max-w-2xl bg-white rounded-xl shadow-2xl border border-[var(--border-color)] overflow-hidden bg-cover bg-center bg-no-repeat">
                     <div id="canvas-grid" class="grid grid-cols-2 h-full">
                         <!-- Drop zones will be injected here -->
                     </div>
@@ -81,6 +81,26 @@
                 <div>
                     <h3 class="config-heading">Layout</h3>
                     <div class="space-y-3">
+                        <div>
+                            <label class="config-label" for="output-size">Output Size (inches)</label>
+                            <select class="form-input-custom" id="output-size" name="output-size">
+                                <option value="10x8">10 x 8 (Landscape)</option>
+                                <option value="7x5">7 x 5 (Landscape)</option>
+                                <option value="6x4">6 x 4 (Landscape)</option>
+                                <option value="8x10">8 x 10 (Portrait)</option>
+                                <option value="5x7">5 x 7 (Portrait)</option>
+                                <option value="4x6">4 x 6 (Portrait)</option>
+                                <option value="10x10">10 x 10 (Square)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="config-label" for="output-dpi">Resolution (DPI)</label>
+                            <select class="form-input-custom" id="output-dpi" name="output-dpi">
+                                <option value="300">300 DPI (Print)</option>
+                                <option value="150">150 DPI (High-Res Screen)</option>
+                                <option value="72">72 DPI (Web/Screen)</option>
+                            </select>
+                        </div>
                         <div>
                             <label class="config-label" for="image-fitting">Image Fitting</label>
                             <select class="form-input-custom" id="image-fitting" name="image-fitting">
