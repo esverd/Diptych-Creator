@@ -12,6 +12,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body class="bg-white text-[var(--text-primary)]" style="font-family: Manrope, 'Noto Sans', sans-serif;">
+    <!-- Hidden file input for uploads -->
+    <input type="file" id="file-uploader" class="hidden" multiple accept="image/png, image/jpeg, image/webp">
+
     <div id="welcome-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white">
         <div class="text-center">
             <div class="inline-block text-[var(--primary-color)] mb-4">
@@ -25,8 +28,7 @@
             <h1 class="text-4xl font-bold tracking-tighter">Diptych Master</h1>
             <p class="text-slate-600 mt-2">The professional way to create two-image layouts.</p>
             <div class="mt-8 flex gap-4 justify-center">
-                <button id="select-folder-btn" class="btn btn-primary w-36">Select Folder</button>
-                <button id="select-files-btn" class="btn btn-secondary w-36">Select Files</button>
+                <button id="select-images-btn" class="btn btn-primary w-40">Select Images</button>
             </div>
         </div>
     </div>
@@ -47,109 +49,106 @@
             <div class="flex items-center gap-2">
                 <button id="download-btn" class="btn btn-primary"><span class="truncate">Download All</span></button>
                 <button id="mobile-menu-btn" class="icon-btn md:hidden">
-                    <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg">
-                        <line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="18" y2="18"></line>
-                    </svg>
+                    <!-- Icon will be changed by JS -->
                 </button>
             </div>
         </header>
 
-        <main class="flex flex-1 flex-col">
-            <div class="flex flex-1">
-                <aside id="left-panel" class="w-72 border-r border-[var(--accent-color)] p-4 space-y-4 hidden md:flex md:flex-col">
-                    <h2 class="text-lg font-semibold mb-3">Your Images (<span id="unpaired-count">0</span>)</h2>
-                    <div id="image-pool" class="grid grid-cols-2 gap-3 overflow-y-auto flex-1">
-                        <!-- Image thumbnails will be injected here -->
-                    </div>
-                    <button id="upload-more-btn" class="btn btn-secondary w-full mt-4">
-                        <svg class="mr-2" fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line>
-                        </svg>
-                        Upload More
-                    </button>
-                </aside>
-
-                <div class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-50">
-                    <div id="main-canvas" class="w-full max-w-2xl aspect-[2/1] bg-white rounded-xl shadow-2xl border border-[var(--border-color)] overflow-hidden">
-                        <!-- Diptych preview will be the background of this div -->
-                    </div>
-                    <p class="mt-4 text-sm text-[var(--text-secondary)]">Drag images from the left panel or <label class="text-[var(--primary-color)] font-medium hover:underline cursor-pointer" for="upload-input-main">click here to upload</label>.</p>
-                    <input accept="image/*" class="hidden" id="upload-input-main" multiple type="file"/>
+        <main class="flex flex-1 flex-col md:flex-row overflow-y-auto">
+            <aside id="left-panel" class="w-full md:w-72 border-b md:border-b-0 md:border-r border-[var(--accent-color)] p-4 space-y-4 hidden md:flex flex-col">
+                <h2 class="text-lg font-semibold mb-3">Your Images (<span id="unpaired-count">0</span>)</h2>
+                <div id="image-pool" class="grid grid-cols-3 md:grid-cols-2 gap-3 overflow-y-auto flex-1">
+                    <!-- Image thumbnails will be injected here -->
                 </div>
+                <button id="upload-more-btn" class="btn btn-secondary w-full mt-4">
+                    <svg class="mr-2" fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line>
+                    </svg>
+                    Upload More
+                </button>
+            </aside>
 
-                <aside id="right-panel" class="w-72 border-l border-[var(--accent-color)] p-4 space-y-6 hidden md:block">
-                    <div>
-                        <h3 class="config-heading">Layout</h3>
-                        <div class="space-y-3">
-                            <div>
-                                <label class="config-label" for="image-fitting">Image Fitting</label>
-                                <select class="form-input-custom" id="image-fitting" name="image-fitting">
-                                    <option value="fill">Crop / Fill</option>
-                                    <option value="fit">Fit / Letterbox</option>
-                                </select>
-                            </div>
-                            <div>
-                                <div class="flex items-center justify-between">
-                                    <label class="config-label" for="border-size">Border Size</label>
-                                    <p id="border-size-value" class="text-xs text-[var(--text-secondary)]">10 px</p>
-                                </div>
-                                <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="border-size" max="50" min="0" name="border-size" type="range" value="10"/>
-                            </div>
-                        </div>
+            <div class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-50 relative">
+                <div id="main-canvas" class="w-full max-w-2xl aspect-[2/1] bg-white rounded-xl shadow-2xl border border-[var(--border-color)] overflow-hidden bg-cover bg-center bg-no-repeat">
+                    <div id="canvas-grid" class="grid grid-cols-2 h-full">
+                        <!-- Drop zones will be injected here -->
                     </div>
-                    <div id="image-1-controls" class="hidden">
-                        <h3 class="config-heading">Image 1</h3>
-                        <div class="space-y-3">
-                            <div class="flex gap-2">
-                                <button data-slot="1" class="btn-rotate btn btn-secondary flex-1 text-xs">
-                                    <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                                    Rotate
-                                </button>
-                            </div>
-                            <button data-slot="1" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 w-full text-xs">
-                                <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                Remove
-                            </button>
-                        </div>
-                    </div>
-                    <div id="image-2-controls" class="hidden">
-                        <h3 class="config-heading">Image 2</h3>
-                        <div class="space-y-3">
-                           <div class="flex gap-2">
-                                <button data-slot="2" class="btn-rotate btn btn-secondary flex-1 text-xs">
-                                    <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                                    Rotate
-                                </button>
-                            </div>
-                            <button data-slot="2" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 w-full text-xs">
-                                <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                Remove
-                            </button>
-                        </div>
-                    </div>
-                     <div class="pt-4 border-t border-[var(--accent-color)]">
-                         <label class="config-label flex-row items-center justify-between">
-                            <span>Download as .zip</span>
-                            <input type="checkbox" id="zip-toggle" class="form-checkbox h-5 w-5 rounded text-red-700 focus:ring-red-600" checked>
-                         </label>
-                    </div>
-                </aside>
+                </div>
+                <p class="mt-4 text-sm text-[var(--text-secondary)]">Drag images from the library or <label id="upload-label" class="text-[var(--primary-color)] font-medium hover:underline cursor-pointer">click here to upload</label>.</p>
             </div>
 
-            <div id="bottom-bar" class="bg-gray-100 border-t border-[var(--accent-color)] px-4 py-3 overflow-x-auto whitespace-nowrap">
-                <div class="flex items-center space-x-3">
-                    <button id="scroll-left-btn" class="icon-btn !size-8 shrink-0">
-                        <svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg>
-                    </button>
-                    <div id="diptych-tray" class="inline-flex items-center space-x-3">
-                        <!-- Diptych tray items will be injected here -->
+            <aside id="right-panel" class="w-full md:w-72 border-t md:border-t-0 md:border-l border-[var(--accent-color)] p-4 space-y-6 hidden md:block">
+                <div>
+                    <h3 class="config-heading">Layout</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="config-label" for="image-fitting">Image Fitting</label>
+                            <select class="form-input-custom" id="image-fitting" name="image-fitting">
+                                <option value="fill">Crop / Fill</option>
+                                <option value="fit">Fit / Letterbox</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <label class="config-label" for="border-size">Border Size</label>
+                                <p id="border-size-value" class="text-xs text-[var(--text-secondary)]">10 px</p>
+                            </div>
+                            <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="border-size" max="50" min="0" name="border-size" type="range" value="10"/>
+                        </div>
                     </div>
-                    <button id="scroll-right-btn" class="icon-btn !size-8 shrink-0">
-                        <svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg>
-                    </button>
                 </div>
-            </div>
+                <div id="image-1-controls" class="hidden">
+                    <h3 class="config-heading">Image 1</h3>
+                    <div class="space-y-3">
+                        <div class="flex gap-2">
+                            <button data-slot="1" class="btn-rotate btn btn-secondary flex-1 text-xs">
+                                <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                Rotate
+                            </button>
+                        </div>
+                        <button data-slot="1" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 w-full text-xs">
+                            <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            Remove
+                        </button>
+                    </div>
+                </div>
+                <div id="image-2-controls" class="hidden">
+                    <h3 class="config-heading">Image 2</h3>
+                    <div class="space-y-3">
+                       <div class="flex gap-2">
+                            <button data-slot="2" class="btn-rotate btn btn-secondary flex-1 text-xs">
+                                <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                Rotate
+                            </button>
+                        </div>
+                        <button data-slot="2" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 w-full text-xs">
+                            <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            Remove
+                        </button>
+                    </div>
+                </div>
+                 <div class="pt-4 border-t border-[var(--accent-color)]">
+                     <label class="config-label flex flex-row items-center justify-between">
+                        <span>Download as .zip</span>
+                        <input type="checkbox" id="zip-toggle" class="form-checkbox h-5 w-5 rounded text-red-700 focus:ring-red-600" checked>
+                     </label>
+                </div>
+            </aside>
         </main>
+
+        <div id="bottom-bar" class="bg-gray-100 border-t border-[var(--accent-color)] px-4 py-3 overflow-x-auto whitespace-nowrap">
+            <div class="flex items-center space-x-3">
+                <button id="scroll-left-btn" class="icon-btn !size-8 shrink-0">
+                    <svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg>
+                </button>
+                <div id="diptych-tray" class="inline-flex items-center space-x-3">
+                    <!-- Diptych tray items will be injected here -->
+                </div>
+                <button id="scroll-right-btn" class="icon-btn !size-8 shrink-0">
+                    <svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg>
+                </button>
+            </div>
+        </div>
         
         <div id="loading-overlay" class="hidden absolute inset-0 z-50 bg-white/70 backdrop-blur-sm flex items-center justify-center">
             <div class="text-center w-64">
