@@ -1,3 +1,5 @@
+/* review_app/static/css/style.css */
+
 /* --- Root Variables and Base Styles --- */
 :root {
     --primary-color: #d0130a;
@@ -6,7 +8,7 @@
     --text-primary: #1f2937;
     --text-secondary: #6b7280;
     --border-color: #d1d5db;
-    --select-button-svg: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724px%27 height=%2724px%27 fill=%27rgb(107,114,128)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e');
+    --select-button-svg: url('data:image/svg+xml,%3csvg xmlns=%27[http://www.w3.org/2000/svg%27](http://www.w3.org/2000/svg%27) width=%2724px%27 height=%2724px%27 fill=%27rgb(107,114,128)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e');
 }
 
 .hidden {
@@ -133,6 +135,8 @@
     animation: spin 0.8s linear infinite;
     position: absolute;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .img-thumbnail:active {
     cursor: grabbing;
 }
@@ -162,6 +166,25 @@
 }
 
 /* --- Main Canvas & Drop Zones --- */
+#main-canvas {
+    position: relative;
+    transition: background-image 0.2s;
+}
+/* Add a loading spinner to the main canvas while the preview is being generated */
+#main-canvas.preview-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    margin: -20px 0 0 -20px;
+    border: 4px solid rgba(0,0,0,0.2);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
 .drop-zone {
     border: 2px dashed transparent;
     transition: background-color 0.2s, border-color 0.2s;
@@ -183,9 +206,6 @@
     color: var(--text-secondary);
     transition: opacity 0.2s;
     pointer-events: none; /* Allow clicks to pass through */
-}
-.drop-zone.has-image .drop-zone-placeholder {
-    opacity: 0;
 }
 .drop-zone-placeholder svg {
     margin: 0 auto 0.5rem;
@@ -211,6 +231,7 @@
     overflow: hidden;
     cursor: pointer;
     transition: border-color 0.2s;
+    background-color: var(--secondary-color);
     background-size: cover;
     background-position: center;
 }
@@ -266,7 +287,6 @@
     animation: spin 1s linear infinite;
     margin: 0 auto;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .progress-bar-container {
     width: 100%;
