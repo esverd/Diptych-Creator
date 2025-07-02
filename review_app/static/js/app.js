@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isGenerating: false,
     };
     const PREGEN_DELAY = 1000;
+    let canvasSortableInstances = []; // To keep track of Sortable instances
 
     // --- ELEMENT SELECTORS ---
     const fileUploader = document.getElementById('file-uploader');
@@ -83,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
             welcomeScreen.classList.add('hidden');
             appContainer.classList.remove('hidden');
             
-            // *** USABILITY FIX: Explicitly show panels on desktop when app loads ***
             if (window.innerWidth >= 768) { // Tailwind's 'md' breakpoint
                 leftPanel.classList.remove('hidden');
                 rightPanel.classList.remove('hidden');
@@ -127,7 +127,6 @@ document.addEventListener('DOMContentLoaded', () => {
             newFilenames.push(file.name);
         }
 
-        // Optimistically add placeholders to the UI
         showAppContainer();
         const newImages = newFilenames.map(filename => ({ path: filename }));
         newImages.forEach(newImg => {
@@ -135,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 appState.images.push(newImg);
             }
         });
-        renderImagePool(); // Renders placeholders with loading spinners
+        renderImagePool();
 
         try {
             const response = await fetch('/upload_images', {
@@ -143,16 +142,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
             if (!response.ok) throw new Error(`Upload failed: ${response.statusText}`);
-            
-            // The backend confirms which files were processed.
-            // The UI is already showing placeholders, which will resolve automatically.
             hideLoading();
-
         } catch (error) {
             console.error("Error during file upload:", error);
             alert(`An error occurred during upload: ${error.message}`);
             hideLoading();
-            // Optional: remove placeholders that failed
             appState.images = appState.images.filter(img => !newFilenames.includes(img.path));
             renderImagePool();
         }
@@ -239,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 thumbContainer.classList.remove('thumbnail-loading');
             };
             imgEl.onerror = () => {
-                // Keep retrying if the thumbnail isn't ready
                 setTimeout(() => { imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}?t=${new Date().getTime()}` }, 1000);
             };
 
@@ -278,6 +271,8 @@ document.addEventListener('DOMContentLoaded', () => {
             canvasGrid.appendChild(dropZone);
         }
         debouncedPreviewUpdate();
+        // **CRITICAL FIX**: Initialize the drop zones AFTER they are created and in the DOM.
+        initializeCanvasDropZones();
     }
     
     function createDropZone(slotNumber) {
@@ -374,24 +369,52 @@ document.addEventListener('DOMContentLoaded', () => {
             animation: 150,
             sort: false,
         });
+        // This function is now called from renderActiveDiptych
+    }
+    
+    function initializeCanvasDropZones() {
+        // Clean up old instances to prevent memory leaks
+        canvasSortableInstances.forEach(instance => instance.destroy());
+        canvasSortableInstances = [];
 
-        new Sortable(canvasGrid, {
-            group: 'shared',
-            animation: 150,
-            onAdd: function (evt) {
-                const path = evt.item.dataset.path;
-                const slot = evt.to.dataset.slot;
-                evt.item.parentElement.removeChild(evt.item);
-                if (slot) {
-                    const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-                    const imageKey = `image${slot}`;
-                    activeDiptych[imageKey] = { path, rotation: 0 };
-                    renderImagePool();
-                    renderActiveDiptych();
+        document.querySelectorAll('#canvas-grid .drop-zone').forEach(zone => {
+            const instance = new Sortable(zone, {
+                group: 'shared',
+                animation: 150,
+                onAdd: function (evt) {
+                    const path = evt.item.dataset.path;
+                    const slot = evt.to.dataset.slot;
+
+                    evt.item.parentElement.removeChild(evt.item);
+
+                    if (slot) {
+                        const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
+                        const imageKey = `image${slot}`;
+                        activeDiptych[imageKey] = { path, rotation: 0 };
+                        
+                        // Re-render the entire view to ensure consistency
+                        renderImagePool();
+                        renderActiveDiptych();
+                    }
+                },
+                onStart: function () {
+                    document.body.classList.add('is-dragging');
+                },
+                onEnd: function () {
+                    document.body.classList.remove('is-dragging');
+                },
+                // Add visual feedback on hover
+                onMove: function (evt) {
+                    document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-over'));
+                    if (evt.related.classList.contains('drop-zone')) {
+                        evt.related.classList.add('drag-over');
+                    }
                 }
-            }
+            });
+            canvasSortableInstances.push(instance);
         });
     }
+
 
     // --- FINAL GENERATION ---
     async function generateDiptychs() {
