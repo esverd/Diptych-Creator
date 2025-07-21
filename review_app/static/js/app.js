@@ -91,10 +91,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleMobilePanels() {
-        const isLeftHidden = leftPanel.classList.contains('hidden');
-        if (!isLeftHidden) { leftPanel.classList.add('hidden'); rightPanel.classList.remove('hidden'); } 
-        else if (rightPanel.classList.contains('hidden')) { leftPanel.classList.remove('hidden'); }
-        else { rightPanel.classList.add('hidden'); }
+        const leftPanel = document.getElementById('left-panel');
+        const rightPanel = document.getElementById('right-panel');
+        const isHidden = leftPanel.classList.contains('hidden');
+
+        if (isHidden) {
+            leftPanel.classList.remove('hidden');
+            rightPanel.classList.remove('hidden');
+        } else {
+            leftPanel.classList.add('hidden');
+            rightPanel.classList.add('hidden');
+        }
         updateMobileMenuIcon();
     }
 
@@ -295,34 +302,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function refreshWysiwygPreview() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-        if (!activeDiptych) return;
-        const { config } = activeDiptych;
-
-        let w = config.width, h = config.height;
-        if (config.orientation === 'portrait') [w, h] = [h, w];
-        mainCanvas.style.aspectRatio = `${w} / ${h}`;
-        mainCanvas.classList.add('preview-loading');
-        previewImage.classList.add('hidden');
+        if (!activeDiptych || (!activeDiptych.image1 && !activeDiptych.image2)) {
+            previewImage.classList.add('hidden');
+            mainCanvas.classList.remove('preview-loading');
+            return;
+        }
 
         try {
+            mainCanvas.classList.add('preview-loading');
             const response = await fetch('/get_wysiwyg_preview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ diptych: activeDiptych })
             });
-            if (response.ok) {
-                const imageBlob = await response.blob();
-                previewImage.src = URL.createObjectURL(imageBlob);
-                previewImage.classList.remove('hidden');
-            } else {
-                previewImage.src = '';
+
+            if (!response.ok) {
+                throw new Error(`Preview failed: ${response.statusText}`);
             }
+
+            const blob = await response.blob();
+            const imageUrl = URL.createObjectURL(blob);
+            
+            previewImage.onload = () => {
+                previewImage.classList.remove('hidden');
+                mainCanvas.classList.remove('preview-loading');
+                URL.revokeObjectURL(imageUrl);
+            };
+            
+            previewImage.src = imageUrl;
         } catch (error) {
-            console.error("WYSIWYG Preview failed:", error);
-            previewImage.src = '';
-        } finally {
+            console.error('Preview generation failed:', error);
+            previewImage.classList.add('hidden');
             mainCanvas.classList.remove('preview-loading');
-            updateTrayPreview(diptychTray.querySelector(`[data-index='${appState.activeDiptychIndex}'] .diptych-tray-preview`), activeDiptych);
         }
     }
     
@@ -351,23 +362,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DRAG & DROP ---
     function initializeDragAndDrop() {
-        new Sortable(imagePool, {
-            group: { name: 'shared', pull: 'clone', put: false },
-            animation: 150, sort: false,
+        const dropZones = document.querySelectorAll('.drop-zone');
+        const thumbnails = document.querySelectorAll('.img-thumbnail');
+
+        // Track if we're currently dragging
+        let isDragging = false;
+
+        // Handle drag events for thumbnails
+        document.addEventListener('dragstart', (e) => {
+            const thumbnail = e.target.closest('.img-thumbnail');
+            if (thumbnail) {
+                isDragging = true;
+                e.dataTransfer.setData('text/plain', thumbnail.dataset.path);
+                e.dataTransfer.effectAllowed = 'move';
+            }
         });
-        document.querySelectorAll('#canvas-grid .drop-zone').forEach(zone => {
-            new Sortable(zone, {
-                group: 'shared', animation: 150,
-                onAdd: function (evt) {
-                    const path = evt.item.dataset.path;
-                    const slot = evt.to.dataset.slot;
-                    evt.item.parentElement.removeChild(evt.item);
-                    if (slot) {
-                        const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-                        activeDiptych[`image${slot}`] = { path, rotation: 0 };
-                        renderImagePool();
-                        renderActiveDiptychUI();
-                    }
+
+        document.addEventListener('dragend', () => {
+            isDragging = false;
+            dropZones.forEach(zone => zone.classList.remove('drag-over'));
+        });
+
+        // Handle drop zone events
+        dropZones.forEach(zone => {
+            zone.addEventListener('dragenter', (e) => {
+                if (isDragging) {
+                    e.preventDefault();
+                    zone.classList.add('drag-over');
+                }
+            });
+
+            zone.addEventListener('dragover', (e) => {
+                if (isDragging) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                }
+            });
+
+            zone.addEventListener('dragleave', (e) => {
+                if (!e.relatedTarget || !zone.contains(e.relatedTarget)) {
+                    zone.classList.remove('drag-over');
+                }
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+                
+                const path = e.dataTransfer.getData('text/plain');
+                const slot = zone.dataset.slot;
+                const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
+                
+                if (activeDiptych) {
+                    const imageKey = `image${slot}`;
+                    activeDiptych[imageKey] = { path };
+                    renderActiveDiptychUI();
+                    requestPreviewRefresh();
                 }
             });
         });

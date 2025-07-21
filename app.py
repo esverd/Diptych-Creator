@@ -94,46 +94,66 @@ def get_wysiwyg_preview():
     Generates a high-fidelity, WYSIWYG preview using the exact same
     logic as the final diptych creation.
     """
-    data = request.get_json()
-    diptych_data = data.get('diptych')
-    if not diptych_data:
-        return "Invalid preview request", 400
+    try:
+        data = request.get_json()
+        if not data or 'diptych' not in data:
+            return "Invalid preview request", 400
 
-    config = diptych_data.get('config')
-    image1_data = diptych_data.get('image1')
-    image2_data = diptych_data.get('image2')
+        diptych_data = data['diptych']
+        config = diptych_data.get('config', {})
+        image1_data = diptych_data.get('image1')
+        image2_data = diptych_data.get('image2')
 
-    # Use a lower DPI for previews to make them generate faster.
-    preview_dpi = 150 
-    
-    # Handle orientation for the preview dimensions
-    width = float(config['width'])
-    height = float(config['height'])
-    if config.get('orientation') == 'portrait':
-        width, height = height, width
+        if not image1_data and not image2_data:
+            return "No images to preview", 400
 
-    final_dims = diptych_creator.calculate_pixel_dimensions(width, height, preview_dpi)
+        # Use a lower DPI for previews to make them generate faster
+        preview_dpi = 150 
+        
+        # Handle orientation for the preview dimensions
+        width = float(config.get('width', 10))
+        height = float(config.get('height', 8))
+        if config.get('orientation') == 'portrait':
+            width, height = height, width
 
-    img1, img2 = None, None
-    if image1_data:
-        path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image1_data['path'])))
-        img1 = diptych_creator.process_source_image(path1, final_dims, image1_data.get('rotation', 0), config.get('fit_mode', 'fill'))
+        final_dims = diptych_creator.calculate_pixel_dimensions(width, height, preview_dpi)
 
-    if image2_data:
-        path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image2_data['path'])))
-        img2 = diptych_creator.process_source_image(path2, final_dims, image2_data.get('rotation', 0), config.get('fit_mode', 'fill'))
+        img1, img2 = None, None
+        if image1_data:
+            path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image1_data['path'])))
+            if os.path.exists(path1):
+                img1 = diptych_creator.process_source_image(
+                    path1,
+                    final_dims,
+                    image1_data.get('rotation', 0),
+                    config.get('fit_mode', 'fill')
+                )
 
-    if not img1 and not img2:
-        return "No images to preview", 404
+        if image2_data:
+            path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image2_data['path'])))
+            if os.path.exists(path2):
+                img2 = diptych_creator.process_source_image(
+                    path2,
+                    final_dims,
+                    image2_data.get('rotation', 0),
+                    config.get('fit_mode', 'fill')
+                )
 
-    canvas = diptych_creator.create_diptych_canvas(img1, img2, final_dims, config.get('gap', 0))
-    if not canvas:
-        return "Error creating preview canvas", 500
+        if not img1 and not img2:
+            return "Error processing images", 500
 
-    buf = io.BytesIO()
-    canvas.save(buf, format='JPEG', quality=90)
-    buf.seek(0)
-    return send_file(buf, mimetype='image/jpeg')
+        canvas = diptych_creator.create_diptych_canvas(img1, img2, final_dims, config.get('gap', 0))
+        if not canvas:
+            return "Error creating preview canvas", 500
+
+        buf = io.BytesIO()
+        canvas.save(buf, format='JPEG', quality=90)
+        buf.seek(0)
+        return send_file(buf, mimetype='image/jpeg')
+
+    except Exception as e:
+        print(f"Preview generation error: {str(e)}")
+        return f"Error generating preview: {str(e)}", 500
 
 
 @app.route('/generate_diptychs', methods=['POST'])
