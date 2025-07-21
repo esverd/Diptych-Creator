@@ -1,3 +1,4 @@
+# app.py
 
 from flask import Flask, render_template, request, jsonify, send_file
 import os
@@ -55,6 +56,7 @@ def index():
     with progress_lock:
         global progress_data
         progress_data = {"processed": 0, "total": 0}
+    # This now points to the single, updated HTML file
     return render_template('index.html')
 
 @app.route('/upload_images', methods=['POST'])
@@ -90,8 +92,7 @@ def get_thumbnail(filename):
 def get_wysiwyg_preview():
     """
     Generates a high-fidelity, WYSIWYG preview using the exact same
-    logic as the final diptych creation. This is the core of the new
-    accurate preview system.
+    logic as the final diptych creation.
     """
     data = request.get_json()
     diptych_data = data.get('diptych')
@@ -103,13 +104,17 @@ def get_wysiwyg_preview():
     image2_data = diptych_data.get('image2')
 
     # Use a lower DPI for previews to make them generate faster.
-    # The aspect ratio is maintained, so it's visually identical.
     preview_dpi = 150 
-    final_dims = diptych_creator.calculate_pixel_dimensions(config['width'], config['height'], preview_dpi)
+    
+    # Handle orientation for the preview dimensions
+    width = float(config['width'])
+    height = float(config['height'])
+    if config.get('orientation') == 'portrait':
+        width, height = height, width
 
-    img1 = None
-    img2 = None
+    final_dims = diptych_creator.calculate_pixel_dimensions(width, height, preview_dpi)
 
+    img1, img2 = None, None
     if image1_data:
         path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image1_data['path'])))
         img1 = diptych_creator.process_source_image(path1, final_dims, image1_data.get('rotation', 0), config.get('fit_mode', 'fill'))
@@ -118,16 +123,13 @@ def get_wysiwyg_preview():
         path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image2_data['path'])))
         img2 = diptych_creator.process_source_image(path2, final_dims, image2_data.get('rotation', 0), config.get('fit_mode', 'fill'))
 
-    # If no images, nothing to preview
     if not img1 and not img2:
         return "No images to preview", 404
 
-    # Create the canvas using the processed images (some might be None)
     canvas = diptych_creator.create_diptych_canvas(img1, img2, final_dims, config.get('gap', 0))
     if not canvas:
         return "Error creating preview canvas", 500
 
-    # Send the generated preview image back to the browser
     buf = io.BytesIO()
     canvas.save(buf, format='JPEG', quality=90)
     buf.seek(0)
@@ -142,33 +144,33 @@ def generate_diptychs():
     diptych_jobs = data.get('pairs', [])
     should_zip = data.get('zip', True)
     
-    # Create a unique output directory for this batch
     output_dir = os.path.join(OUTPUT_DIR_BASE, f"DiptychMaster_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     os.makedirs(output_dir, exist_ok=True)
     
     with progress_lock:
-        progress_data = {
-            "processed": 0, 
-            "total": len(diptych_jobs), 
-            "output_dir": output_dir, 
-            "should_zip": should_zip, 
-            "final_paths": []
-        }
+        progress_data = {"processed": 0, "total": len(diptych_jobs), "output_dir": output_dir, "should_zip": should_zip, "final_paths": []}
 
     def run_generation_task():
         for i, job in enumerate(diptych_jobs):
             pair_data = job['pair']
             config = job['config']
             
-            final_dims = diptych_creator.calculate_pixel_dimensions(config['width'], config['height'], config['dpi'])
+            # Handle orientation for final output dimensions
+            width = float(config['width'])
+            height = float(config['height'])
+            if config.get('orientation') == 'portrait':
+                width, height = height, width
+            
+            final_dims = diptych_creator.calculate_pixel_dimensions(width, height, config['dpi'])
             path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(pair_data[0]['path'])))
             path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(pair_data[1]['path'])))
             final_path = os.path.join(output_dir, f"diptych_{i+1}.jpg")
 
+            # Pass the correct DPI to the creator function
             diptych_creator.create_diptych(
                 {'path': path1, 'rotation': pair_data[0].get('rotation', 0)},
                 {'path': path2, 'rotation': pair_data[1].get('rotation', 0)},
-                final_path, final_dims, config['gap'], config['fit_mode']
+                final_path, final_dims, config['gap'], config['fit_mode'], config['dpi']
             )
             with progress_lock:
                 progress_data["processed"] += 1
@@ -201,12 +203,10 @@ def finalize_download():
 @app.route('/download_file')
 def download_file():
     path = request.args.get('path')
-    # Security check: ensure the path is within the allowed base directory
     if path and os.path.abspath(path).startswith(os.path.abspath(OUTPUT_DIR_BASE)):
         if os.path.exists(path):
             return send_file(path, as_attachment=True)
     return "File not found or access denied", 404
 
 if __name__ == '__main__':
-    # The start.py script is the recommended way to run the app
     app.run(host='127.0.0.1', port=5000, debug=False)

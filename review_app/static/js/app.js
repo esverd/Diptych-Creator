@@ -3,13 +3,13 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE MANAGEMENT ---
     let appState = {
-        images: [], // All uploaded images: { path: 'filename.jpg' }
-        diptychs: [], // All created diptychs
+        images: [],
+        diptychs: [],
         activeDiptychIndex: 0,
         previewDebounceTimer: null,
         isGenerating: false,
     };
-    const PREVIEW_DEBOUNCE_DELAY = 300; // ms to wait after a change before fetching a new preview
+    const PREVIEW_DEBOUNCE_DELAY = 300;
 
     // --- ELEMENT SELECTORS ---
     const fileUploader = document.getElementById('file-uploader');
@@ -18,25 +18,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const imagePool = document.getElementById('image-pool');
     const unpairedCount = document.getElementById('unpaired-count');
     const mainCanvas = document.getElementById('main-canvas');
+    const previewImage = document.getElementById('preview-image');
     const canvasGrid = document.getElementById('canvas-grid');
     const diptychTray = document.getElementById('diptych-tray');
     const leftPanel = document.getElementById('left-panel');
     const rightPanel = document.getElementById('right-panel');
-    
     const selectImagesBtn = document.getElementById('select-images-btn');
     const uploadMoreBtn = document.getElementById('upload-more-btn');
     const uploadLabel = document.getElementById('upload-label');
     const downloadBtn = document.getElementById('download-btn');
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-
-    // Config Controls
     const outputSizeSelect = document.getElementById('output-size');
+    const orientationBtn = document.getElementById('orientation-btn');
+    const customDimContainer = document.getElementById('custom-dim-container');
+    const customWidthInput = document.getElementById('custom-width');
+    const customHeightInput = document.getElementById('custom-height');
     const outputDpiSelect = document.getElementById('output-dpi');
     const imageFittingSelect = document.getElementById('image-fitting');
     const borderSizeSlider = document.getElementById('border-size');
     const borderSizeValue = document.getElementById('border-size-value');
     const zipToggle = document.getElementById('zip-toggle');
-    
     const loadingOverlay = document.getElementById('loading-overlay');
     const progressText = document.getElementById('progress-text');
     const progressBar = document.getElementById('progress-bar');
@@ -54,30 +55,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS ---
     function addEventListeners() {
-        selectImagesBtn.addEventListener('click', () => fileUploader.click());
-        uploadMoreBtn.addEventListener('click', () => fileUploader.click());
-        uploadLabel.addEventListener('click', () => fileUploader.click());
+        [selectImagesBtn, uploadMoreBtn, uploadLabel].forEach(el => el.addEventListener('click', () => fileUploader.click()));
         fileUploader.addEventListener('change', handleFileUpload);
         downloadBtn.addEventListener('click', generateDiptychs);
         mobileMenuBtn.addEventListener('click', toggleMobilePanels);
-
-        // All config changes trigger a new preview
         outputSizeSelect.addEventListener('change', handleConfigChange);
+        orientationBtn.addEventListener('click', toggleOrientation);
+        [customWidthInput, customHeightInput].forEach(el => el.addEventListener('input', handleConfigChange));
         outputDpiSelect.addEventListener('change', handleConfigChange);
         imageFittingSelect.addEventListener('change', handleConfigChange);
-        borderSizeSlider.addEventListener('input', handleConfigChange); // Use input for live updates
-
+        borderSizeSlider.addEventListener('input', handleConfigChange);
         document.addEventListener('click', (e) => {
             if (e.target.closest('.btn-rotate')) handleRotate(e);
             if (e.target.closest('.btn-remove')) handleRemove(e);
         });
-        
         diptychTray.addEventListener('click', handleTrayClick);
         document.getElementById('scroll-left-btn').addEventListener('click', () => scrollTray(-200));
         document.getElementById('scroll-right-btn').addEventListener('click', () => scrollTray(200));
     }
 
-    // --- UI LOGIC & STATE ---
+    // --- UI & STATE ---
     function showAppContainer() {
         if (!welcomeScreen.classList.contains('hidden')) {
             welcomeScreen.classList.add('hidden');
@@ -95,10 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function toggleMobilePanels() {
         const isLeftHidden = leftPanel.classList.contains('hidden');
-        const isRightHidden = rightPanel.classList.contains('hidden');
         if (!isLeftHidden) { leftPanel.classList.add('hidden'); rightPanel.classList.remove('hidden'); } 
-        else if (!isRightHidden) { rightPanel.classList.add('hidden'); } 
-        else { leftPanel.classList.remove('hidden'); }
+        else if (rightPanel.classList.contains('hidden')) { leftPanel.classList.remove('hidden'); }
+        else { rightPanel.classList.add('hidden'); }
         updateMobileMenuIcon();
     }
 
@@ -107,34 +103,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!files.length) return;
         showLoading('Uploading images...');
         const formData = new FormData();
-        const newFilenames = Array.from(files).map(f => f.name);
-        for (const file of files) formData.append('files[]', file);
-        
+        Array.from(files).forEach(file => formData.append('files[]', file));
         showAppContainer();
-        const newImages = newFilenames.map(filename => ({ path: filename }));
+        const newImages = Array.from(files).map(f => ({ path: f.name }));
         newImages.forEach(newImg => {
-            if (!appState.images.some(existing => existing.path === newImg.path)) appState.images.push(newImg);
+            if (!appState.images.some(existing => existing.path === newImg.path)) {
+                appState.images.push(newImg);
+            }
         });
         renderImagePool();
-
         try {
-            const response = await fetch('/upload_images', { method: 'POST', body: formData });
-            if (!response.ok) throw new Error(`Upload failed: ${response.statusText}`);
-            hideLoading();
+            await fetch('/upload_images', { method: 'POST', body: formData });
         } catch (error) {
-            console.error("Error during file upload:", error);
-            alert(`An error occurred during upload: ${error.message}`);
+            console.error("Upload failed:", error);
+            alert(`Upload failed: ${error.message}`);
+        } finally {
             hideLoading();
-            appState.images = appState.images.filter(img => !newFilenames.includes(img.path));
-            renderImagePool();
+            event.target.value = null;
         }
-        event.target.value = null;
     }
 
     function addNewDiptych(andSwitch = true) {
         const newDiptych = {
             image1: null, image2: null,
-            config: { fit_mode: 'fill', gap: 25, width: 10, height: 8, dpi: 300 }
+            config: { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300 }
         };
         appState.diptychs.push(newDiptych);
         if (andSwitch) appState.activeDiptychIndex = appState.diptychs.length - 1;
@@ -153,29 +145,47 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleConfigChange() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
+        const config = activeDiptych.config;
+        const selectedSize = outputSizeSelect.value;
         
-        // Update state from UI
-        const [width, height] = outputSizeSelect.value.split('x').map(parseFloat);
-        activeDiptych.config.width = width;
-        activeDiptych.config.height = height;
-        activeDiptych.config.dpi = parseInt(outputDpiSelect.value, 10);
-        activeDiptych.config.fit_mode = imageFittingSelect.value;
-        activeDiptych.config.gap = parseInt(borderSizeSlider.value, 10);
+        const isSwitchingToCustom = selectedSize === 'custom' && customDimContainer.classList.contains('hidden');
+        if (isSwitchingToCustom) {
+            customWidthInput.value = config.width;
+            customHeightInput.value = config.height;
+        }
         
-        // Update UI that doesn't require a full re-render
-        borderSizeValue.textContent = `${activeDiptych.config.gap} px`;
+        customDimContainer.classList.toggle('hidden', selectedSize !== 'custom');
 
-        // Trigger a debounced preview refresh
-        requestPreviewRefresh();
+        if (selectedSize === 'custom') {
+            config.width = parseFloat(customWidthInput.value) || 10;
+            config.height = parseFloat(customHeightInput.value) || 8;
+        } else {
+            [config.width, config.height] = selectedSize.split('x').map(parseFloat);
+        }
+        
+        config.dpi = parseInt(outputDpiSelect.value, 10);
+        config.fit_mode = imageFittingSelect.value;
+        config.gap = parseInt(borderSizeSlider.value, 10);
+        borderSizeValue.textContent = `${config.gap} px`;
+        
+        // Update UI elements that depend on config changes
+        renderActiveDiptychUI();
+    }
+
+    function toggleOrientation() {
+        const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
+        if (!activeDiptych) return;
+        activeDiptych.config.orientation = activeDiptych.config.orientation === 'landscape' ? 'portrait' : 'landscape';
+        renderActiveDiptychUI();
     }
     
     function handleRotate(e) {
         const slot = e.target.closest('button').dataset.slot;
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         const imageKey = `image${slot}`;
-        if (activeDiptych && activeDiptych[imageKey]) {
+        if (activeDiptych?.[imageKey]) {
             activeDiptych[imageKey].rotation = ((activeDiptych[imageKey].rotation || 0) + 90) % 360;
-            requestPreviewRefresh(); // A rotation requires a new preview
+            requestPreviewRefresh();
         }
     }
 
@@ -183,10 +193,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const slot = e.target.closest('button').dataset.slot;
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         const imageKey = `image${slot}`;
-        if (activeDiptych && activeDiptych[imageKey]) {
+        if (activeDiptych?.[imageKey]) {
             activeDiptych[imageKey] = null;
             renderImagePool();
-            renderActiveDiptychUI(); // Full UI refresh to show placeholder
+            renderActiveDiptychUI();
         }
     }
     
@@ -213,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const imgEl = document.createElement('img');
             imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}`;
             imgEl.onload = () => { imgEl.classList.add('loaded'); thumbContainer.classList.remove('thumbnail-loading'); };
-            imgEl.onerror = () => { setTimeout(() => { imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}?t=${new Date().getTime()}` }, 1000); };
+            imgEl.onerror = () => setTimeout(() => { imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}?t=${Date.now()}` }, 1000);
             const filenameDiv = document.createElement('div');
             filenameDiv.className = 'filename';
             filenameDiv.textContent = imgData.path;
@@ -222,43 +232,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /**
-     * Renders the entire active diptych UI, including controls and the main canvas.
-     * This function is "dumb" - it just reflects the current appState.
-     */
     function renderActiveDiptychUI() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
-
-        // Sync right-panel controls with the active diptych's state
-        outputSizeSelect.value = `${activeDiptych.config.width}x${activeDiptych.config.height}`;
-        outputDpiSelect.value = activeDiptych.config.dpi;
-        imageFittingSelect.value = activeDiptych.config.fit_mode;
-        borderSizeSlider.value = activeDiptych.config.gap;
-        borderSizeValue.textContent = `${activeDiptych.config.gap} px`;
+        const { config } = activeDiptych;
         
-        // Show/hide image-specific controls
+        const sizeValue = `${config.width}x${config.height}`;
+        outputSizeSelect.value = outputSizeSelect.querySelector(`option[value="${sizeValue}"]`) ? sizeValue : 'custom';
+        
+        customDimContainer.classList.toggle('hidden', outputSizeSelect.value !== 'custom');
+        customWidthInput.value = config.width;
+        customHeightInput.value = config.height;
+
+        outputDpiSelect.value = config.dpi;
+        imageFittingSelect.value = config.fit_mode;
+        borderSizeSlider.value = config.gap;
+        borderSizeValue.textContent = `${config.gap} px`;
+        
+        orientationBtn.innerHTML = config.orientation === 'landscape' 
+            ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"></rect></svg>` 
+            : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2" ry="2"></rect></svg>`;
+        orientationBtn.setAttribute('aria-label', `Toggle to ${config.orientation === 'landscape' ? 'portrait' : 'landscape'}`);
+
+        const isSquare = config.width === config.height;
+        orientationBtn.disabled = isSquare;
+        orientationBtn.classList.toggle('opacity-50', isSquare);
+        orientationBtn.classList.toggle('cursor-not-allowed', isSquare);
+
         document.getElementById('image-1-controls').classList.toggle('hidden', !activeDiptych.image1);
         document.getElementById('image-2-controls').classList.toggle('hidden', !activeDiptych.image2);
         
-        // Render the drop zone placeholders
-        canvasGrid.innerHTML = '';
-        canvasGrid.appendChild(createDropZone(1));
-        canvasGrid.appendChild(createDropZone(2));
-        initializeCanvasDropZones();
-
-        // Trigger a preview refresh, which will handle showing the image or placeholders
         requestPreviewRefresh();
     }
     
-    function createDropZone(slotNumber) {
-        const zone = document.createElement('div');
-        zone.className = 'drop-zone';
-        zone.dataset.slot = slotNumber;
-        zone.innerHTML = `<div class="drop-zone-placeholder"><svg viewBox="0 0 24 24" stroke="currentColor"><rect height="18" rx="2" ry="2" width="18" x="3" y="3"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg><p>Drop Image ${slotNumber} Here</p></div>`;
-        return zone;
-    }
-
     function renderDiptychTray() {
         diptychTray.innerHTML = '';
         appState.diptychs.forEach((diptych, index) => {
@@ -273,7 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
             number.textContent = index + 1;
             item.append(preview, number);
             diptychTray.appendChild(item);
-            // Tray previews are now also generated via the WYSIWYG endpoint
             updateTrayPreview(preview, diptych);
         });
         const addButton = document.createElement('div');
@@ -283,29 +288,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // --- WYSIWYG PREVIEW SYSTEM ---
-
-    /**
-     * Central function to request a preview refresh. Debounces requests to avoid
-     * overwhelming the server during rapid changes (like dragging a slider).
-     */
     function requestPreviewRefresh() {
         clearTimeout(appState.previewDebounceTimer);
         appState.previewDebounceTimer = setTimeout(refreshWysiwygPreview, PREVIEW_DEBOUNCE_DELAY);
     }
 
-    /**
-     * Fetches and displays the accurate, server-generated preview.
-     * This is the heart of the new WYSIWYG system.
-     */
     async function refreshWysiwygPreview() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
+        const { config } = activeDiptych;
 
-        // 1. Set the main canvas aspect ratio to match the output
-        mainCanvas.style.aspectRatio = `${activeDiptych.config.width} / ${activeDiptych.config.height}`;
-
-        // 2. Show loading state on the canvas
+        let w = config.width, h = config.height;
+        if (config.orientation === 'portrait') [w, h] = [h, w];
+        mainCanvas.style.aspectRatio = `${w} / ${h}`;
         mainCanvas.classList.add('preview-loading');
+        previewImage.classList.add('hidden');
 
         try {
             const response = await fetch('/get_wysiwyg_preview', {
@@ -313,44 +310,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ diptych: activeDiptych })
             });
-
             if (response.ok) {
                 const imageBlob = await response.blob();
-                const objectURL = URL.createObjectURL(imageBlob);
-                mainCanvas.style.backgroundImage = `url(${objectURL})`;
-                // Hide the dropzone grid when a valid preview is shown
-                canvasGrid.classList.add('hidden');
+                previewImage.src = URL.createObjectURL(imageBlob);
+                previewImage.classList.remove('hidden');
             } else {
-                 // If the server returns an error (e.g., no images), clear the preview
-                mainCanvas.style.backgroundImage = 'none';
-                // Show the dropzone grid so the user can add images
-                canvasGrid.classList.remove('hidden');
+                previewImage.src = '';
             }
         } catch (error) {
             console.error("WYSIWYG Preview failed:", error);
-            mainCanvas.style.backgroundImage = 'none';
-            canvasGrid.classList.remove('hidden');
+            previewImage.src = '';
         } finally {
-            // 4. Hide loading state
             mainCanvas.classList.remove('preview-loading');
-            // Also update the small tray preview
             updateTrayPreview(diptychTray.querySelector(`[data-index='${appState.activeDiptychIndex}'] .diptych-tray-preview`), activeDiptych);
         }
     }
     
-    /**
-     * Updates the small preview in the bottom tray.
-     * Re-uses the same WYSIWYG endpoint for consistency.
-     */
     async function updateTrayPreview(element, diptych) {
-        if (!element || !diptych) return;
-        
-        // Don't fetch if there are no images
-        if (!diptych.image1 && !diptych.image2) {
-            element.style.backgroundImage = 'none';
+        if (!element || !diptych || (!diptych.image1 && !diptych.image2)) {
+            if(element) element.style.backgroundImage = 'none';
             return;
         }
-
         try {
             const response = await fetch('/get_wysiwyg_preview', {
                 method: 'POST',
@@ -373,34 +353,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function initializeDragAndDrop() {
         new Sortable(imagePool, {
             group: { name: 'shared', pull: 'clone', put: false },
-            animation: 150,
-            sort: false,
+            animation: 150, sort: false,
         });
-    }
-    
-    function initializeCanvasDropZones() {
-        // This logic remains largely the same, but now it just updates the state
-        // and triggers a full UI/Preview refresh.
         document.querySelectorAll('#canvas-grid .drop-zone').forEach(zone => {
             new Sortable(zone, {
                 group: 'shared', animation: 150,
                 onAdd: function (evt) {
                     const path = evt.item.dataset.path;
                     const slot = evt.to.dataset.slot;
-                    evt.item.parentElement.removeChild(evt.item); // Remove the dragged clone
+                    evt.item.parentElement.removeChild(evt.item);
                     if (slot) {
                         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-                        const imageKey = `image${slot}`;
-                        activeDiptych[imageKey] = { path, rotation: 0 };
+                        activeDiptych[`image${slot}`] = { path, rotation: 0 };
                         renderImagePool();
-                        renderActiveDiptychUI(); // This will trigger the new preview
+                        renderActiveDiptychUI();
                     }
-                },
-                onStart: () => document.body.classList.add('is-dragging'),
-                onEnd: () => document.body.classList.remove('is-dragging'),
-                onMove: (evt) => {
-                    document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-over'));
-                    if (evt.related.classList.contains('drop-zone')) evt.related.classList.add('drag-over');
                 }
             });
         });
@@ -410,43 +377,33 @@ document.addEventListener('DOMContentLoaded', () => {
     async function generateDiptychs() {
         if (appState.isGenerating) return;
         const pairsToGenerate = appState.diptychs.filter(d => d.image1 && d.image2);
-        
         if (pairsToGenerate.length === 0) {
             alert("Please create at least one complete diptych pair before downloading.");
             return;
         }
-
         appState.isGenerating = true;
         showLoading('Preparing generation...', 0);
         const payload = {
-            pairs: pairsToGenerate.map(d => ({
-                pair: [d.image1, d.image2],
-                config: d.config
-            })),
+            pairs: pairsToGenerate.map(d => ({ pair: [d.image1, d.image2], config: d.config })),
             zip: zipToggle.checked
         };
-
         try {
             const startResponse = await fetch('/generate_diptychs', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const startResult = await startResponse.json();
-            if (startResult.status !== 'started') throw new Error('Failed to start generation on server.');
-
+            if (!startResponse.ok) throw new Error('Failed to start generation on server.');
             const progressInterval = setInterval(async () => {
                 const progressResponse = await fetch('/get_generation_progress');
                 const progress = await progressResponse.json();
                 const percent = progress.total > 0 ? (progress.processed / progress.total) * 100 : 0;
                 updateLoadingProgress(percent, `Generating... (${progress.processed} of ${progress.total})`);
-                
                 if (progress.processed >= progress.total) {
                     clearInterval(progressInterval);
                     updateLoadingProgress(100, 'Finalizing download...');
                     const finalResponse = await fetch('/finalize_download');
                     const finalResult = await finalResponse.json();
                     hideLoading();
-                    
                     if (finalResult.download_path) {
                         window.location.href = `/download_file?path=${encodeURIComponent(finalResult.download_path)}`;
                     } else if (finalResult.download_paths) {
@@ -465,9 +422,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 1000);
         } catch (error) {
-            console.error("Generation failed:", error);
             hideLoading();
-            alert(`An error occurred during generation: ${error.message}`);
+            alert(`An error occurred: ${error.message}`);
             appState.isGenerating = false;
         }
     }
@@ -486,6 +442,5 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingOverlay.classList.add('hidden');
     }
 
-    // --- START THE APP ---
     init();
 });
