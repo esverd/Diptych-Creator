@@ -106,6 +106,17 @@
                             </div>
                             <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="border-size" max="100" min="0" name="border-size" type="range" value="25"/>
                         </div>
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <label class="config-label" for="outer-border-size">Outer Border Size</label>
+                                <p id="outer-border-size-value" class="text-xs text-[var(--text-secondary)]">0 px</p>
+                            </div>
+                            <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="outer-border-size" max="100" min="0" name="outer-border-size" type="range" value="0"/>
+                        </div>
+                        <div>
+                            <label class="config-label" for="border-color">Border Color</label>
+                            <input type="color" id="border-color" name="border-color" value="#ffffff" class="form-input-custom" style="width: 3rem; height: 2rem; padding: 0; border-radius: 0.5rem;">
+                        </div>
                     </div>
                 </div>
                 <div id="image-1-controls" class="hidden">

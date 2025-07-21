@@ -61,30 +61,50 @@ def process_source_image(image_path, target_diptych_dims, rotation_override=0, f
         print(f"Error processing {image_path}: {e}")
         return None
 
-def create_diptych_canvas(img1, img2, final_dims, gap_px):
+def create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px=0, border_color='white'):
     final_width, final_height = final_dims
     is_landscape_diptych = final_width > final_height
-    canvas_w = final_width + gap_px if is_landscape_diptych else final_width
-    canvas_h = final_height if is_landscape_diptych else final_height + gap_px
-    canvas = Image.new('RGB', (canvas_w, canvas_h), 'white')
     half_w = final_width // 2 if is_landscape_diptych else final_width
     half_h = final_height if is_landscape_diptych else final_height // 2
+
+    # Calculate canvas size including outer border
+    canvas_w = final_width + gap_px + 2 * outer_border_px if is_landscape_diptych else final_width + 2 * outer_border_px
+    canvas_h = final_height + 2 * outer_border_px if is_landscape_diptych else final_height + gap_px + 2 * outer_border_px
+    canvas = Image.new('RGB', (canvas_w, canvas_h), border_color)
+
+    # Center images in their cells
     if is_landscape_diptych:
-        if img1: canvas.paste(img1, (0, 0))
-        if img2: canvas.paste(img2, (half_w + gap_px, 0))
+        # Left image
+        if img1:
+            x1 = outer_border_px + (half_w - img1.width) // 2
+            y1 = outer_border_px + (half_h - img1.height) // 2
+            canvas.paste(img1, (x1, y1))
+        # Right image
+        if img2:
+            x2 = outer_border_px + half_w + gap_px + (half_w - img2.width) // 2
+            y2 = outer_border_px + (half_h - img2.height) // 2
+            canvas.paste(img2, (x2, y2))
     else:
-        if img1: canvas.paste(img1, (0, 0))
-        if img2: canvas.paste(img2, (0, half_h + gap_px))
+        # Top image
+        if img1:
+            x1 = outer_border_px + (half_w - img1.width) // 2
+            y1 = outer_border_px + (half_h - img1.height) // 2
+            canvas.paste(img1, (x1, y1))
+        # Bottom image
+        if img2:
+            x2 = outer_border_px + (half_w - img2.width) // 2
+            y2 = outer_border_px + half_h + gap_px + (half_h - img2.height) // 2
+            canvas.paste(img2, (x2, y2))
     return canvas
 
-def create_diptych(image_data1, image_data2, output_path, final_dims, gap_px, fit_mode, dpi):
-    """Processes two source images and saves the resulting diptych with correct DPI."""
+def create_diptych(image_data1, image_data2, output_path, final_dims, gap_px, fit_mode, dpi, outer_border_px=0, border_color='white'):
+    """Processes two source images and saves the resulting diptych with correct DPI and outer border."""
     img1 = process_source_image(image_data1['path'], final_dims, image_data1.get('rotation', 0), fit_mode)
     img2 = process_source_image(image_data2['path'], final_dims, image_data2.get('rotation', 0), fit_mode)
     if not img1 or not img2:
         print(f"Skipping diptych due to image processing error.")
         return
-    canvas = create_diptych_canvas(img1, img2, final_dims, gap_px)
+    canvas = create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px, border_color)
     # Correctly save with the specified DPI from the config
     canvas.save(output_path, 'jpeg', quality=95, dpi=(dpi, dpi))
     print(f"Successfully created diptych: {os.path.basename(output_path)}")

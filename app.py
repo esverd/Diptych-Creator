@@ -118,6 +118,9 @@ def get_wysiwyg_preview():
 
         final_dims = diptych_creator.calculate_pixel_dimensions(width, height, preview_dpi)
 
+        outer_border_px = int(config.get('outer_border', 0))
+        border_color = config.get('border_color', 'white')
+
         img1, img2 = None, None
         if image1_data:
             path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image1_data['path'])))
@@ -142,7 +145,7 @@ def get_wysiwyg_preview():
         if not img1 and not img2:
             return "Error processing images", 500
 
-        canvas = diptych_creator.create_diptych_canvas(img1, img2, final_dims, config.get('gap', 0))
+        canvas = diptych_creator.create_diptych_canvas(img1, img2, final_dims, config.get('gap', 0), outer_border_px, border_color)
         if not canvas:
             return "Error creating preview canvas", 500
 
@@ -186,11 +189,12 @@ def generate_diptychs():
             path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(pair_data[1]['path'])))
             final_path = os.path.join(output_dir, f"diptych_{i+1}.jpg")
 
-            # Pass the correct DPI to the creator function
+            outer_border_px = int(config.get('outer_border', 0))
+            border_color = config.get('border_color', 'white')
             diptych_creator.create_diptych(
                 {'path': path1, 'rotation': pair_data[0].get('rotation', 0)},
                 {'path': path2, 'rotation': pair_data[1].get('rotation', 0)},
-                final_path, final_dims, config['gap'], config['fit_mode'], config['dpi']
+                final_path, final_dims, config['gap'], config['fit_mode'], config['dpi'], outer_border_px, border_color
             )
             with progress_lock:
                 progress_data["processed"] += 1

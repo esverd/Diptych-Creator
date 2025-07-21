@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingOverlay = document.getElementById('loading-overlay');
     const progressText = document.getElementById('progress-text');
     const progressBar = document.getElementById('progress-bar');
+    const outerBorderSizeSlider = document.getElementById('outer-border-size');
+    const outerBorderSizeValue = document.getElementById('outer-border-size-value');
+    const borderColorInput = document.getElementById('border-color');
 
     const hamburgerIcon = `<svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="18" y2="18"></line></svg>`;
     const closeIcon = `<svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><line x1="18" x2="6" y1="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>`;
@@ -65,6 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
         outputDpiSelect.addEventListener('change', handleConfigChange);
         imageFittingSelect.addEventListener('change', handleConfigChange);
         borderSizeSlider.addEventListener('input', handleConfigChange);
+        outerBorderSizeSlider.addEventListener('input', handleConfigChange);
+        borderColorInput.addEventListener('input', handleConfigChange);
         document.addEventListener('click', (e) => {
             if (e.target.closest('.btn-rotate')) handleRotate(e);
             if (e.target.closest('.btn-remove')) handleRemove(e);
@@ -174,9 +179,13 @@ document.addEventListener('DOMContentLoaded', () => {
         config.fit_mode = imageFittingSelect.value;
         config.gap = parseInt(borderSizeSlider.value, 10);
         borderSizeValue.textContent = `${config.gap} px`;
+        config.outer_border = parseInt(outerBorderSizeSlider.value, 10);
+        outerBorderSizeValue.textContent = `${config.outer_border} px`;
+        config.border_color = borderColorInput.value;
         
         // Update UI elements that depend on config changes
         renderActiveDiptychUI();
+        requestPreviewRefresh();
     }
 
     function toggleOrientation() {
@@ -255,6 +264,9 @@ document.addEventListener('DOMContentLoaded', () => {
         imageFittingSelect.value = config.fit_mode;
         borderSizeSlider.value = config.gap;
         borderSizeValue.textContent = `${config.gap} px`;
+        outerBorderSizeSlider.value = config.outer_border;
+        outerBorderSizeValue.textContent = `${config.outer_border} px`;
+        borderColorInput.value = config.border_color;
         
         orientationBtn.innerHTML = config.orientation === 'landscape' 
             ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"></rect></svg>` 
@@ -307,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
             mainCanvas.classList.remove('preview-loading');
             return;
         }
-
         try {
             mainCanvas.classList.add('preview-loading');
             const response = await fetch('/get_wysiwyg_preview', {
@@ -315,20 +326,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ diptych: activeDiptych })
             });
-
             if (!response.ok) {
                 throw new Error(`Preview failed: ${response.statusText}`);
             }
-
             const blob = await response.blob();
             const imageUrl = URL.createObjectURL(blob);
-            
             previewImage.onload = () => {
                 previewImage.classList.remove('hidden');
                 mainCanvas.classList.remove('preview-loading');
                 URL.revokeObjectURL(imageUrl);
             };
-            
             previewImage.src = imageUrl;
         } catch (error) {
             console.error('Preview generation failed:', error);
