@@ -1,5 +1,14 @@
+import os
+import sys
 import pytest
 from PIL import Image
+
+# Ensure the project root is on the path when tests are executed from the
+# tests directory.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from diptych_creator import create_diptych_canvas
 
 def make_img(w=50, h=50, color='white'):
