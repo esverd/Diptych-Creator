@@ -118,18 +118,20 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoading('Uploading images...');
         const formData = new FormData();
         Array.from(files).forEach(file => formData.append('files[]', file));
-        showAppContainer();
-        const newImages = Array.from(files).map(f => ({ path: f.name }));
-        newImages.forEach(newImg => {
-            if (!appState.images.some(existing => existing.path === newImg.path)) {
-                appState.images.push(newImg);
-            }
-        });
-        renderImagePool();
         try {
-            await fetch('/upload_images', { method: 'POST', body: formData });
+            const response = await fetch('/upload_images', { method: 'POST', body: formData });
+            if (!response.ok) throw new Error('Upload failed');
+            const uploaded = await response.json();
+            const newImages = uploaded.map(name => ({ path: name }));
+            newImages.forEach(newImg => {
+                if (!appState.images.some(existing => existing.path === newImg.path)) {
+                    appState.images.push(newImg);
+                }
+            });
+            renderImagePool();
+            showAppContainer();
         } catch (error) {
-            console.error("Upload failed:", error);
+            console.error('Upload failed:', error);
             alert(`Upload failed: ${error.message}`);
         } finally {
             hideLoading();
