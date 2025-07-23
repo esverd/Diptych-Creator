@@ -70,8 +70,17 @@ def upload_images():
     
     for file in files:
         if file.filename and file:
-            filename = secure_filename(file.filename)
+            original_name = secure_filename(file.filename)
+            filename = original_name
             save_path = os.path.join(UPLOAD_DIR, filename)
+            name, ext = os.path.splitext(original_name)
+            counter = 1
+            # Ensure unique filenames to avoid overwriting existing uploads
+            while os.path.exists(save_path):
+                filename = f"{name}_{counter}{ext}"
+                save_path = os.path.join(UPLOAD_DIR, filename)
+                counter += 1
+
             file.save(save_path)
             executor.submit(create_single_thumbnail, save_path)
             uploaded_filenames.append(filename)
