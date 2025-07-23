@@ -67,9 +67,12 @@ def create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px=0, bor
     half_w = final_width // 2 if is_landscape_diptych else final_width
     half_h = final_height if is_landscape_diptych else final_height // 2
 
+    # Use gap only when both images are present
+    effective_gap = gap_px if img1 and img2 else 0
+
     # Calculate canvas size including outer border
-    canvas_w = final_width + gap_px + 2 * outer_border_px if is_landscape_diptych else final_width + 2 * outer_border_px
-    canvas_h = final_height + 2 * outer_border_px if is_landscape_diptych else final_height + gap_px + 2 * outer_border_px
+    canvas_w = final_width + effective_gap + 2 * outer_border_px if is_landscape_diptych else final_width + 2 * outer_border_px
+    canvas_h = final_height + 2 * outer_border_px if is_landscape_diptych else final_height + effective_gap + 2 * outer_border_px
     canvas = Image.new('RGB', (canvas_w, canvas_h), border_color)
 
     # Center images in their cells
@@ -81,7 +84,7 @@ def create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px=0, bor
             canvas.paste(img1, (x1, y1))
         # Right image
         if img2:
-            x2 = outer_border_px + half_w + gap_px + (half_w - img2.width) // 2
+            x2 = outer_border_px + half_w + effective_gap + (half_w - img2.width) // 2
             y2 = outer_border_px + (half_h - img2.height) // 2
             canvas.paste(img2, (x2, y2))
     else:
@@ -93,7 +96,7 @@ def create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px=0, bor
         # Bottom image
         if img2:
             x2 = outer_border_px + (half_w - img2.width) // 2
-            y2 = outer_border_px + half_h + gap_px + (half_h - img2.height) // 2
+            y2 = outer_border_px + half_h + effective_gap + (half_h - img2.height) // 2
             canvas.paste(img2, (x2, y2))
     return canvas
 
