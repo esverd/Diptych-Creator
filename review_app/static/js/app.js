@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadMoreBtn = document.getElementById('upload-more-btn');
     const uploadLabel = document.getElementById('upload-label');
     const downloadBtn = document.getElementById('download-btn');
+    const autoPairBtn = document.getElementById('auto-pair-btn');
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
     const outputSizeSelect = document.getElementById('output-size');
     const orientationBtn = document.getElementById('orientation-btn');
@@ -61,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [selectImagesBtn, uploadMoreBtn, uploadLabel].forEach(el => el.addEventListener('click', () => fileUploader.click()));
         fileUploader.addEventListener('change', handleFileUpload);
         downloadBtn.addEventListener('click', generateDiptychs);
+        autoPairBtn.addEventListener('click', autoPairImages);
         mobileMenuBtn.addEventListener('click', toggleMobilePanels);
         outputSizeSelect.addEventListener('change', handleConfigChange);
         orientationBtn.addEventListener('click', toggleOrientation);
@@ -137,8 +139,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addNewDiptych(andSwitch = true) {
         const newDiptych = {
-            image1: null, image2: null,
-            config: { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300 }
+            image1: null,
+            image2: null,
+            config: { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300, outer_border: 0, border_color: '#ffffff' }
         };
         appState.diptychs.push(newDiptych);
         if (andSwitch) appState.activeDiptychIndex = appState.diptychs.length - 1;
@@ -151,6 +154,32 @@ document.addEventListener('DOMContentLoaded', () => {
             appState.activeDiptychIndex = index;
             renderDiptychTray();
             renderActiveDiptychUI();
+        }
+    }
+
+    async function autoPairImages() {
+        if (appState.images.length === 0) return;
+        showLoading('Grouping images...');
+        try {
+            const response = await fetch('/auto_group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ threshold: 2 }) });
+            const result = await response.json();
+            appState.diptychs = [];
+            result.pairs.forEach(pair => {
+                appState.diptychs.push({
+                    image1: { path: pair[0] },
+                    image2: { path: pair[1] },
+                    config: { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300, outer_border: 0, border_color: '#ffffff' }
+                });
+            });
+            if (appState.diptychs.length === 0) addNewDiptych();
+            appState.activeDiptychIndex = 0;
+            renderDiptychTray();
+            renderImagePool();
+            renderActiveDiptychUI();
+        } catch (err) {
+            alert('Auto pairing failed: ' + err.message);
+        } finally {
+            hideLoading();
         }
     }
 

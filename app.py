@@ -11,6 +11,7 @@ import threading
 import shutil
 from werkzeug.utils import secure_filename
 from concurrent.futures import ThreadPoolExecutor
+from PIL import Image, ExifTags
 
 app = Flask(__name__, template_folder='review_app/templates', static_folder='review_app/static')
 
@@ -23,6 +24,12 @@ OUTPUT_DIR_BASE = os.path.join(os.path.expanduser("~"), "Downloads")
 
 # Use a thread pool for background tasks
 executor = ThreadPoolExecutor(max_workers=4)
+
+# EXIF tag for original capture time
+DATE_TAGS = [
+    next((k for k, v in ExifTags.TAGS.items() if v == 'DateTimeOriginal'), None),
+    next((k for k, v in ExifTags.TAGS.items() if v == 'DateTime'), None)
+]
 
 # Clean cache on start for a fresh session
 if os.path.exists(BASE_CACHE_DIR):
@@ -48,6 +55,23 @@ def create_single_thumbnail(full_path):
                 img.save(thumb_path, "JPEG", quality=85)
     except Exception as e:
         print(f"Could not create thumbnail for {os.path.basename(full_path)}: {e}")
+
+def get_capture_time(full_path):
+    """Return capture datetime from EXIF or file modified time."""
+    try:
+        with Image.open(full_path) as img:
+            exif = img._getexif()
+            if exif:
+                for tag in DATE_TAGS:
+                    if tag and tag in exif:
+                        dt_str = exif[tag]
+                        try:
+                            return datetime.strptime(dt_str, '%Y:%m:%d %H:%M:%S')
+                        except Exception:
+                            pass
+    except Exception:
+        pass
+    return datetime.fromtimestamp(os.path.getmtime(full_path))
 
 # --- Flask Routes ---
 @app.route('/')
@@ -95,6 +119,28 @@ def get_thumbnail(filename):
         return send_file(thumb_path)
     else:
         return "Thumbnail not ready", 404
+
+@app.route('/auto_group', methods=['POST'])
+def auto_group():
+    """Automatically group images into diptychs based on capture time."""
+    data = request.get_json() or {}
+    threshold = float(data.get('threshold', 2))
+    files = [f for f in os.listdir(UPLOAD_DIR) if os.path.isfile(os.path.join(UPLOAD_DIR, f))]
+    info = []
+    for f in files:
+        path = os.path.join(UPLOAD_DIR, f)
+        info.append({'name': f, 'time': get_capture_time(path)})
+    info.sort(key=lambda x: x['time'])
+
+    pairs = []
+    i = 0
+    while i < len(info) - 1:
+        if (info[i+1]['time'] - info[i]['time']).total_seconds() <= threshold:
+            pairs.append([info[i]['name'], info[i+1]['name']])
+            i += 2
+        else:
+            i += 1
+    return jsonify({'pairs': pairs})
 
 # --- WYSIWYG PREVIEW ENDPOINT ---
 @app.route('/get_wysiwyg_preview', methods=['POST'])
