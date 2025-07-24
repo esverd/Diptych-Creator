@@ -16,7 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const welcomeScreen = document.getElementById('welcome-screen');
     const appContainer = document.getElementById('app-container');
     const imagePool = document.getElementById('image-pool');
+    const usedImagePool = document.getElementById('used-image-pool');
     const unpairedCount = document.getElementById('unpaired-count');
+    const usedCount = document.getElementById('used-count');
     const mainCanvas = document.getElementById('main-canvas');
     const previewImage = document.getElementById('preview-image');
     const canvasGrid = document.getElementById('canvas-grid');
@@ -265,10 +267,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- RENDERING ---
     function renderImagePool() {
         imagePool.innerHTML = '';
+        usedImagePool.innerHTML = '';
         const usedPaths = appState.diptychs.flatMap(d => [d.image1?.path, d.image2?.path]).filter(Boolean);
-        const unpairedImages = appState.images.filter(img => !usedPaths.includes(img.path));
-        unpairedCount.textContent = unpairedImages.length;
-        unpairedImages.forEach(imgData => {
+        const unusedImages = appState.images.filter(img => !usedPaths.includes(img.path));
+        const usedImages = appState.images.filter(img => usedPaths.includes(img.path));
+        unpairedCount.textContent = unusedImages.length;
+        usedCount.textContent = usedImages.length;
+
+        function createThumb(imgData) {
             const thumbContainer = document.createElement('div');
             thumbContainer.className = 'img-thumbnail thumbnail-loading';
             thumbContainer.dataset.path = imgData.path;
@@ -280,8 +286,11 @@ document.addEventListener('DOMContentLoaded', () => {
             filenameDiv.className = 'filename';
             filenameDiv.textContent = imgData.path;
             thumbContainer.append(imgEl, filenameDiv);
-            imagePool.appendChild(thumbContainer);
-        });
+            return thumbContainer;
+        }
+
+        unusedImages.forEach(imgData => imagePool.appendChild(createThumb(imgData)));
+        usedImages.forEach(imgData => usedImagePool.appendChild(createThumb(imgData)));
     }
 
     function renderActiveDiptychUI() {
@@ -467,6 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (activeDiptych) {
                     const imageKey = `image${slot}`;
                     activeDiptych[imageKey] = { path };
+                    renderImagePool();
                     renderActiveDiptychUI();
                     updateActiveTrayPreview();
                     requestPreviewRefresh();
