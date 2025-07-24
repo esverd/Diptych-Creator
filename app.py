@@ -163,7 +163,7 @@ def get_wysiwyg_preview():
             return "No images to preview", 400
 
         # Use a lower DPI for previews to make them generate faster
-        preview_dpi = 72
+        preview_dpi = 150 
         
         # Handle orientation for the preview dimensions
         width = float(config.get('width', 10))
@@ -209,7 +209,7 @@ def get_wysiwyg_preview():
             return "Error creating preview canvas", 500
 
         buf = io.BytesIO()
-        canvas.save(buf, format='JPEG', quality=80)
+        canvas.save(buf, format='JPEG', quality=90)
         buf.seek(0)
         return send_file(buf, mimetype='image/jpeg')
 
