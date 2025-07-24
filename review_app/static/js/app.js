@@ -139,11 +139,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function addNewDiptych(andSwitch = true) {
+    function getDefaultConfig() {
+        return { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300, outer_border: 0, border_color: '#ffffff' };
+    }
+
+    function addNewDiptych(andSwitch = true, baseConfig = null) {
+        const reference = baseConfig || appState.diptychs[appState.activeDiptychIndex]?.config || getDefaultConfig();
         const newDiptych = {
             image1: null,
             image2: null,
-            config: { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300, outer_border: 0, border_color: '#ffffff' }
+            config: { ...reference }
         };
         appState.diptychs.push(newDiptych);
         if (andSwitch) appState.activeDiptychIndex = appState.diptychs.length - 1;
@@ -161,18 +166,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function autoPairImages() {
         if (appState.images.length === 0) return;
-        showLoading('Grouping images...');
+        showLoading('Pairing images...');
         try {
-            const response = await fetch('/auto_group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ threshold: 2 }) });
-            const result = await response.json();
+            const baseConfig = { ...(appState.diptychs[appState.activeDiptychIndex]?.config || getDefaultConfig()) };
             appState.diptychs = [];
-            result.pairs.forEach(pair => {
-                appState.diptychs.push({
-                    image1: { path: pair[0] },
-                    image2: { path: pair[1] },
-                    config: { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300, outer_border: 0, border_color: '#ffffff' }
-                });
-            });
+            for (let i = 0; i < appState.images.length; i += 2) {
+                const img1 = appState.images[i] ? { ...appState.images[i] } : null;
+                const img2 = appState.images[i + 1] ? { ...appState.images[i + 1] } : null;
+                appState.diptychs.push({ image1: img1, image2: img2, config: { ...baseConfig } });
+            }
             if (appState.diptychs.length === 0) addNewDiptych();
             appState.activeDiptychIndex = 0;
             renderDiptychTray();
