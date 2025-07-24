@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addNewDiptych(andSwitch = true) {
-        let baseConfig = { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300, outer_border: 0, border_color: '#ffffff' };
+        let baseConfig = { fit_mode: 'fit', gap: 20, width: 6, height: 4, orientation: 'landscape', dpi: 300, outer_border: 20, border_color: '#ffffff' };
         if (appState.diptychs.length > 0) {
             baseConfig = { ...appState.diptychs[appState.activeDiptychIndex].config };
         }
@@ -165,12 +165,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function deleteDiptych(index) {
+        if (appState.diptychs.length <= 1) return;
+        if (index >= 0 && index < appState.diptychs.length) {
+            appState.diptychs.splice(index, 1);
+            if (appState.activeDiptychIndex >= appState.diptychs.length) {
+                appState.activeDiptychIndex = appState.diptychs.length - 1;
+            }
+            renderDiptychTray();
+            renderImagePool();
+            renderActiveDiptychUI();
+        }
+    }
+
     async function autoPairImages() {
         if (appState.images.length === 0) return;
         showLoading('Pairing images...');
         try {
             appState.diptychs = [];
-            const defaultConfig = { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300, outer_border: 0, border_color: '#ffffff' };
+            const defaultConfig = { fit_mode: 'fit', gap: 20, width: 6, height: 4, orientation: 'landscape', dpi: 300, outer_border: 20, border_color: '#ffffff' };
             for (let i = 0; i < appState.images.length; i += 2) {
                 const img1 = appState.images[i] ? { ...appState.images[i] } : null;
                 const img2 = appState.images[i + 1] ? { ...appState.images[i + 1] } : null;
@@ -255,6 +268,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function handleTrayClick(e) {
+        if (e.target.closest('.delete-diptych-btn')) {
+            const item = e.target.closest('.diptych-tray-item');
+            if (item) deleteDiptych(parseInt(item.dataset.index, 10));
+            return;
+        }
         const item = e.target.closest('.diptych-tray-item');
         if (item) switchActiveDiptych(parseInt(item.dataset.index, 10));
         else if (e.target.closest('.add-diptych-btn')) addNewDiptych();
@@ -351,7 +369,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const number = document.createElement('span');
             number.className = 'diptych-tray-number';
             number.textContent = index + 1;
-            item.append(preview, number);
+            const delBtn = document.createElement('div');
+            delBtn.className = 'delete-diptych-btn';
+            delBtn.innerHTML = `<svg fill="currentColor" height="12" viewBox="0 0 256 256" width="12"><path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.51a12,12,0,0,1,17,17L145,128Z"></path></svg>`;
+            item.append(preview, number, delBtn);
             diptychTray.appendChild(item);
             updateTrayPreview(preview, diptych);
         });
