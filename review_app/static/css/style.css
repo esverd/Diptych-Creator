@@ -276,6 +276,25 @@
 .diptych-tray-preview.active .diptych-tray-number {
     background-color: var(--primary-color);
 }
+.delete-diptych-btn {
+    position: absolute;
+    top: -0.5rem;
+    left: -0.5rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background-color: var(--accent-color);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.delete-diptych-btn:hover {
+    background-color: #ef4444;
+    color: white;
+}
 .add-diptych-btn {
     width: 7rem;
     height: 4rem;

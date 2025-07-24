@@ -103,22 +103,22 @@
                             <label class="config-label" for="image-fitting">Image Fitting</label>
                             <select class="form-input-custom" id="image-fitting" name="image-fitting">
                                 <option value="fill">Crop / Fill</option>
-                                <option value="fit">Fit / Letterbox</option>
+                                <option value="fit">Fit (No Crop)</option>
                             </select>
                         </div>
                         <div>
                             <div class="flex items-center justify-between">
-                                <label class="config-label" for="border-size">Border Size</label>
-                                <p id="border-size-value" class="text-xs text-[var(--text-secondary)]">25 px</p>
+                                <label class="config-label" for="border-size">Image Spacing</label>
+                                <p id="border-size-value" class="text-xs text-[var(--text-secondary)]">20 px</p>
                             </div>
-                            <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="border-size" max="100" min="0" name="border-size" type="range" value="25"/>
+                            <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="border-size" max="100" min="0" name="border-size" type="range" value="20"/>
                         </div>
                         <div>
                             <div class="flex items-center justify-between">
                                 <label class="config-label" for="outer-border-size">Outer Border Size</label>
-                                <p id="outer-border-size-value" class="text-xs text-[var(--text-secondary)]">0 px</p>
+                                <p id="outer-border-size-value" class="text-xs text-[var(--text-secondary)]">20 px</p>
                             </div>
-                            <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="outer-border-size" max="100" min="0" name="outer-border-size" type="range" value="0"/>
+                            <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="outer-border-size" max="100" min="0" name="outer-border-size" type="range" value="20"/>
                         </div>
                         <div>
                             <label class="config-label" for="border-color">Border Color</label>
