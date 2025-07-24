@@ -25,7 +25,7 @@ def apply_exif_orientation(img):
         pass
     return img
 
-def process_source_image(image_path, target_diptych_dims, rotation_override=0, fit_mode='fill'):
+def process_source_image(image_path, target_diptych_dims, rotation_override=0, fit_mode='fill', auto_rotate=True):
     try:
         with Image.open(image_path) as img:
             img = apply_exif_orientation(img)
@@ -34,9 +34,16 @@ def process_source_image(image_path, target_diptych_dims, rotation_override=0, f
 
             diptych_w, diptych_h = target_diptych_dims
             is_landscape_diptych = diptych_w > diptych_h
-            
+
             half_w = diptych_w // 2 if is_landscape_diptych else diptych_w
             half_h = diptych_h if is_landscape_diptych else diptych_h // 2
+
+            if auto_rotate and half_w != half_h:
+                cell_landscape = half_w > half_h
+                img_landscape = img.width > img.height
+                if cell_landscape != img_landscape:
+                    img = img.rotate(90, expand=True)
+
             target_aspect = half_w / half_h
             
             if fit_mode == 'fill':
