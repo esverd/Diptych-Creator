@@ -231,7 +231,6 @@ document.addEventListener('DOMContentLoaded', () => {
         config.border_color = borderColorInput.value;
         // Keep preview background in sync with selected border color
         previewImage.style.backgroundColor = config.border_color;
-        mainCanvas.style.backgroundColor = config.border_color;
         
         // Update UI elements that depend on config changes
         renderActiveDiptychUI();
@@ -335,7 +334,6 @@ document.addEventListener('DOMContentLoaded', () => {
         borderColorInput.value = config.border_color;
         // Sync preview background with current border color
         previewImage.style.backgroundColor = config.border_color;
-        mainCanvas.style.backgroundColor = config.border_color;
         
         orientationBtn.innerHTML = config.orientation === 'landscape' 
             ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"></rect></svg>` 
@@ -394,14 +392,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function refreshWysiwygPreview() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-        if (!activeDiptych || (!activeDiptych.image1 && !activeDiptych.image2)) {
-            previewImage.classList.add('hidden');
-            mainCanvas.classList.remove('preview-loading');
-            return;
-        }
+       if (!activeDiptych || (!activeDiptych.image1 && !activeDiptych.image2)) {
+           previewImage.classList.add('hidden');
+           mainCanvas.classList.remove('preview-loading');
+            mainCanvas.style.width = '';
+            mainCanvas.style.height = '';
+           return;
+       }
         // Ensure preview background matches outer border color
         previewImage.style.backgroundColor = activeDiptych.config.border_color;
-        mainCanvas.style.backgroundColor = activeDiptych.config.border_color;
         try {
             mainCanvas.classList.add('preview-loading');
             const response = await fetch('/get_wysiwyg_preview', {
@@ -417,6 +416,8 @@ document.addEventListener('DOMContentLoaded', () => {
             previewImage.onload = () => {
                 previewImage.classList.remove('hidden');
                 mainCanvas.classList.remove('preview-loading');
+                mainCanvas.style.width = `${previewImage.naturalWidth}px`;
+                mainCanvas.style.height = `${previewImage.naturalHeight}px`;
                 URL.revokeObjectURL(imageUrl);
             };
             previewImage.src = imageUrl;
