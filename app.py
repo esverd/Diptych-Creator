@@ -163,7 +163,7 @@ def get_wysiwyg_preview():
             return "No images to preview", 400
 
         # Use a lower DPI for previews to make them generate faster
-        preview_dpi = 150 
+        preview_dpi = 72
         
         # Handle orientation for the preview dimensions
         width = float(config.get('width', 10))
