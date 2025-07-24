@@ -140,10 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addNewDiptych(andSwitch = true) {
+        let baseConfig = { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300, outer_border: 0, border_color: '#ffffff' };
+        if (appState.diptychs.length > 0) {
+            baseConfig = { ...appState.diptychs[appState.activeDiptychIndex].config };
+        }
         const newDiptych = {
             image1: null,
             image2: null,
-            config: { fit_mode: 'fill', gap: 25, width: 10, height: 8, orientation: 'landscape', dpi: 300, outer_border: 0, border_color: '#ffffff' }
+            config: { ...baseConfig }
         };
         appState.diptychs.push(newDiptych);
         if (andSwitch) appState.activeDiptychIndex = appState.diptychs.length - 1;
@@ -216,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update UI elements that depend on config changes
         renderActiveDiptychUI();
+        updateActiveTrayPreview();
         requestPreviewRefresh();
     }
 
@@ -224,6 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeDiptych) return;
         activeDiptych.config.orientation = activeDiptych.config.orientation === 'landscape' ? 'portrait' : 'landscape';
         renderActiveDiptychUI();
+        updateActiveTrayPreview();
     }
     
     function handleRotate(e) {
@@ -232,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageKey = `image${slot}`;
         if (activeDiptych?.[imageKey]) {
             activeDiptych[imageKey].rotation = ((activeDiptych[imageKey].rotation || 0) + 90) % 360;
+            updateActiveTrayPreview();
             requestPreviewRefresh();
         }
     }
@@ -244,6 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
             activeDiptych[imageKey] = null;
             renderImagePool();
             renderActiveDiptychUI();
+            updateActiveTrayPreview();
         }
     }
     
@@ -335,6 +343,14 @@ document.addEventListener('DOMContentLoaded', () => {
         addButton.className = 'add-diptych-btn';
         addButton.innerHTML = `<svg fill="currentColor" height="24" viewBox="0 0 256 256" width="24"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"></path></svg>`;
         diptychTray.appendChild(addButton);
+    }
+
+    function updateActiveTrayPreview() {
+        const item = diptychTray.querySelectorAll('.diptych-tray-item')[appState.activeDiptychIndex];
+        if (item) {
+            const preview = item.querySelector('.diptych-tray-preview');
+            if (preview) updateTrayPreview(preview, appState.diptychs[appState.activeDiptychIndex]);
+        }
     }
     
     // --- WYSIWYG PREVIEW SYSTEM ---
@@ -455,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const imageKey = `image${slot}`;
                     activeDiptych[imageKey] = { path };
                     renderActiveDiptychUI();
+                    updateActiveTrayPreview();
                     requestPreviewRefresh();
                 }
             });
