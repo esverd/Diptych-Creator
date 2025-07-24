@@ -69,48 +69,65 @@ def process_source_image(image_path, target_diptych_dims, rotation_override=0, f
         return None
 
 def create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px=0, border_color='white'):
+    """Create the diptych canvas keeping the final dimensions constant."""
     final_width, final_height = final_dims
     is_landscape_diptych = final_width > final_height
-    half_w = final_width // 2 if is_landscape_diptych else final_width
-    half_h = final_height if is_landscape_diptych else final_height // 2
 
     # Use gap only when both images are present
     effective_gap = gap_px if img1 and img2 else 0
 
-    # Calculate canvas size including outer border
-    canvas_w = final_width + effective_gap + 2 * outer_border_px if is_landscape_diptych else final_width + 2 * outer_border_px
-    canvas_h = final_height + 2 * outer_border_px if is_landscape_diptych else final_height + effective_gap + 2 * outer_border_px
-    canvas = Image.new('RGB', (canvas_w, canvas_h), border_color)
+    # Compute the size of each cell inside the fixed final dimensions
+    inner_w = final_width - 2 * outer_border_px
+    inner_h = final_height - 2 * outer_border_px
+
+    if is_landscape_diptych:
+        cell_w = (inner_w - effective_gap) // 2
+        cell_h = inner_h
+    else:
+        cell_w = inner_w
+        cell_h = (inner_h - effective_gap) // 2
+
+    canvas = Image.new('RGB', (final_width, final_height), border_color)
 
     # Center images in their cells
     if is_landscape_diptych:
-        # Left image
         if img1:
-            x1 = outer_border_px + (half_w - img1.width) // 2
-            y1 = outer_border_px + (half_h - img1.height) // 2
+            x1 = outer_border_px + (cell_w - img1.width) // 2
+            y1 = outer_border_px + (cell_h - img1.height) // 2
             canvas.paste(img1, (x1, y1))
-        # Right image
         if img2:
-            x2 = outer_border_px + half_w + effective_gap + (half_w - img2.width) // 2
-            y2 = outer_border_px + (half_h - img2.height) // 2
+            x2 = outer_border_px + cell_w + effective_gap + (cell_w - img2.width) // 2
+            y2 = outer_border_px + (cell_h - img2.height) // 2
             canvas.paste(img2, (x2, y2))
     else:
-        # Top image
         if img1:
-            x1 = outer_border_px + (half_w - img1.width) // 2
-            y1 = outer_border_px + (half_h - img1.height) // 2
+            x1 = outer_border_px + (cell_w - img1.width) // 2
+            y1 = outer_border_px + (cell_h - img1.height) // 2
             canvas.paste(img1, (x1, y1))
-        # Bottom image
         if img2:
-            x2 = outer_border_px + (half_w - img2.width) // 2
-            y2 = outer_border_px + half_h + effective_gap + (half_h - img2.height) // 2
+            x2 = outer_border_px + (cell_w - img2.width) // 2
+            y2 = outer_border_px + cell_h + effective_gap + (cell_h - img2.height) // 2
             canvas.paste(img2, (x2, y2))
+
     return canvas
 
 def create_diptych(image_data1, image_data2, output_path, final_dims, gap_px, fit_mode, dpi, outer_border_px=0, border_color='white'):
     """Processes two source images and saves the resulting diptych with correct DPI and outer border."""
-    img1 = process_source_image(image_data1['path'], final_dims, image_data1.get('rotation', 0), fit_mode)
-    img2 = process_source_image(image_data2['path'], final_dims, image_data2.get('rotation', 0), fit_mode)
+    final_width, final_height = final_dims
+    is_landscape_diptych = final_width > final_height
+
+    # Dimensions available for both images after accounting for the outer border
+    inner_w = final_width - 2 * outer_border_px
+    inner_h = final_height - 2 * outer_border_px
+    effective_gap = gap_px
+
+    if is_landscape_diptych:
+        processing_dims = (inner_w - effective_gap, inner_h)
+    else:
+        processing_dims = (inner_w, inner_h - effective_gap)
+
+    img1 = process_source_image(image_data1['path'], processing_dims, image_data1.get('rotation', 0), fit_mode)
+    img2 = process_source_image(image_data2['path'], processing_dims, image_data2.get('rotation', 0), fit_mode)
     if not img1 or not img2:
         print(f"Skipping diptych due to image processing error.")
         return
