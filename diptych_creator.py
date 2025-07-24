@@ -38,7 +38,7 @@ def process_source_image(image_path, target_diptych_dims, rotation_override=0, f
             half_w = diptych_w // 2 if is_landscape_diptych else diptych_w
             half_h = diptych_h if is_landscape_diptych else diptych_h // 2
 
-            if auto_rotate and half_w != half_h:
+            if auto_rotate and rotation_override == 0 and half_w != half_h:
                 cell_landscape = half_w > half_h
                 img_landscape = img.width > img.height
                 if cell_landscape != img_landscape:

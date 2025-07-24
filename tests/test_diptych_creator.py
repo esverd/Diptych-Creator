@@ -49,3 +49,16 @@ def test_auto_rotate_portrait_into_landscape_cell(tmp_path):
     Image.new('RGB', (50, 100), 'red').save(path)
     result = process_source_image(str(path), (80, 100))
     assert result.size == (80, 50)
+
+
+def test_rotation_override_skips_auto_rotation(tmp_path):
+    path = tmp_path / "gradient.jpg"
+    grad = Image.new('L', (100, 50))
+    for x in range(100):
+        for y in range(50):
+            grad.putpixel((x, y), int(255 * x / 100))
+    grad.convert('RGB').save(path)
+
+    result = process_source_image(str(path), (80, 100), rotation_override=90, fit_mode='fit')
+    gray = result.convert('L')
+    assert gray.getpixel((40, 0)) > gray.getpixel((40, 49))
