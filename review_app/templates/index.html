@@ -44,9 +44,15 @@
 
         <main class="flex flex-1 flex-col md:flex-row overflow-y-auto">
             <aside id="left-panel" class="w-full md:w-72 border-b md:border-b-0 md:border-r border-[var(--accent-color)] p-4 space-y-4 hidden md:flex flex-col">
-                <h2 class="text-lg font-semibold mb-3">Your Images (<span id="unpaired-count">0</span>)</h2>
-                <div id="image-pool" class="grid grid-cols-3 md:grid-cols-2 gap-3 overflow-y-auto flex-1"></div>
+                <div>
+                    <h2 class="text-lg font-semibold mb-3">Your Images (<span id="unpaired-count">0</span>)</h2>
+                    <div id="image-pool" class="grid grid-cols-3 md:grid-cols-2 gap-3 overflow-y-auto flex-1"></div>
+                </div>
                 <button id="upload-more-btn" class="btn btn-secondary w-full mt-4"><svg class="mr-2" fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>Upload More</button>
+                <div id="used-images-section">
+                    <h2 class="text-lg font-semibold mt-4 mb-3">Used Images (<span id="used-count">0</span>)</h2>
+                    <div id="used-image-pool" class="grid grid-cols-3 md:grid-cols-2 gap-3 overflow-y-auto"></div>
+                </div>
             </aside>
 
             <div class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-50 relative">
