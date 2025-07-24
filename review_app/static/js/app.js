@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
         previewDebounceTimer: null,
         isGenerating: false,
     };
-    const PREVIEW_DEBOUNCE_DELAY = 300;
+    const PREVIEW_DEBOUNCE_DELAY = 500;
 
     // --- ELEMENT SELECTORS ---
     const fileUploader = document.getElementById('file-uploader');
@@ -71,8 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
         [customWidthInput, customHeightInput].forEach(el => el.addEventListener('input', handleConfigChange));
         outputDpiSelect.addEventListener('change', handleConfigChange);
         imageFittingSelect.addEventListener('change', handleConfigChange);
-        borderSizeSlider.addEventListener('input', handleConfigChange);
-        outerBorderSizeSlider.addEventListener('input', handleConfigChange);
+        borderSizeSlider.addEventListener('input', handleSliderInput);
+        outerBorderSizeSlider.addEventListener('input', handleSliderInput);
+        borderSizeSlider.addEventListener('change', handleConfigChange);
+        outerBorderSizeSlider.addEventListener('change', handleConfigChange);
         borderColorInput.addEventListener('input', handleConfigChange);
         document.addEventListener('click', (e) => {
             if (e.target.closest('.btn-rotate')) handleRotate(e);
@@ -154,7 +156,10 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.diptychs.push(newDiptych);
         if (andSwitch) appState.activeDiptychIndex = appState.diptychs.length - 1;
         renderDiptychTray();
-        if (andSwitch) renderActiveDiptychUI();
+        if (andSwitch) {
+            renderActiveDiptychUI();
+            requestPreviewRefresh();
+        }
     }
 
     function switchActiveDiptych(index) {
@@ -162,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appState.activeDiptychIndex = index;
             renderDiptychTray();
             renderActiveDiptychUI();
+            requestPreviewRefresh();
         }
     }
 
@@ -181,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDiptychTray();
             renderImagePool();
             renderActiveDiptychUI();
+            requestPreviewRefresh();
         } catch (err) {
             alert('Auto pairing failed: ' + err.message);
         } finally {
@@ -223,6 +230,20 @@ document.addEventListener('DOMContentLoaded', () => {
         requestPreviewRefresh();
     }
 
+    function handleSliderInput(e) {
+        const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
+        if (!activeDiptych) return;
+        const config = activeDiptych.config;
+        if (e.target === borderSizeSlider) {
+            config.gap = parseInt(borderSizeSlider.value, 10);
+            borderSizeValue.textContent = `${config.gap} px`;
+        } else if (e.target === outerBorderSizeSlider) {
+            config.outer_border = parseInt(outerBorderSizeSlider.value, 10);
+            outerBorderSizeValue.textContent = `${config.outer_border} px`;
+        }
+        renderActiveDiptychUI();
+    }
+
     function toggleOrientation() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
@@ -251,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderImagePool();
             renderActiveDiptychUI();
             updateActiveTrayPreview();
+            requestPreviewRefresh();
         }
     }
     
@@ -335,8 +357,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('image-1-controls').classList.toggle('hidden', !activeDiptych.image1);
         document.getElementById('image-2-controls').classList.toggle('hidden', !activeDiptych.image2);
-        
-        requestPreviewRefresh();
     }
     
     function renderDiptychTray() {
