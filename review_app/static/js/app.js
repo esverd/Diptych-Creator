@@ -312,6 +312,16 @@ document.addEventListener('DOMContentLoaded', () => {
         outerBorderSizeSlider.value = config.outer_border;
         outerBorderSizeValue.textContent = `${config.outer_border} px`;
         borderColorInput.value = config.border_color;
+
+        // Update preview and UI colors
+        document.documentElement.style.setProperty('--border-color', config.border_color);
+        mainCanvas.style.backgroundColor = config.border_color;
+        previewImage.style.backgroundColor = config.border_color;
+
+        // Ensure canvas aspect ratio matches output
+        const aspectW = config.orientation === 'portrait' ? config.height : config.width;
+        const aspectH = config.orientation === 'portrait' ? config.width : config.height;
+        mainCanvas.style.aspectRatio = `${aspectW}/${aspectH}`;
         
         orientationBtn.innerHTML = config.orientation === 'landscape' 
             ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" ry="2"></rect></svg>` 
