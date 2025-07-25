@@ -10,6 +10,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from diptych_creator import create_diptych_canvas, process_source_image
+from app import get_capture_time, UPLOAD_TIMES
+from datetime import datetime
 
 def cell_size(final_dims, gap, outer=0, both=True):
     w, h = final_dims
@@ -64,3 +66,14 @@ def test_auto_rotate_portrait_into_landscape_cell(tmp_path):
     Image.new('RGB', (50, 100), 'red').save(path)
     result = process_source_image(str(path), (80, 100))
     assert result.size == (80, 50)
+
+
+def test_get_capture_time_falls_back_to_upload(tmp_path):
+    path = tmp_path / "sample.jpg"
+    Image.new('RGB', (10, 10), 'white').save(path)
+    UPLOAD_TIMES['sample.jpg'] = datetime(2021, 1, 1, 12, 0, 0)
+    try:
+        ts = get_capture_time(str(path))
+        assert ts == UPLOAD_TIMES['sample.jpg']
+    finally:
+        UPLOAD_TIMES.clear()
