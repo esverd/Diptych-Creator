@@ -227,10 +227,14 @@
     border-color: var(--primary-color);
     background-color: rgba(208, 19, 10, 0.1);
 }
+.drop-zone.drag-active {
+    outline: 2px dashed var(--primary-color);
+}
 .drop-zone.drag-over {
     background-color: rgba(208, 19, 10, 0.2);
     border-color: var(--primary-color);
     border-style: solid;
+    outline: 2px dashed var(--primary-color);
 }
 
 

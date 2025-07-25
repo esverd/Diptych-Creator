@@ -1,6 +1,6 @@
 // review_app/static/js/app.js
 
-document.addEventListener('DOMContentLoaded', () => {
+const DiptychApp = (() => {
     // --- STATE MANAGEMENT ---
     let appState = {
         images: [],
@@ -10,6 +10,10 @@ document.addEventListener('DOMContentLoaded', () => {
         isGenerating: false,
     };
     const PREVIEW_DEBOUNCE_DELAY = 300;
+
+    function pxToMm(px, dpi) {
+        return Math.round((px / dpi) * 25.4);
+    }
 
     // --- ELEMENT SELECTORS ---
     const fileUploader = document.getElementById('file-uploader');
@@ -225,9 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
         config.dpi = parseInt(outputDpiSelect.value, 10);
         config.fit_mode = imageFittingSelect.value;
         config.gap = parseInt(borderSizeSlider.value, 10);
-        borderSizeValue.textContent = `${config.gap} px`;
+        borderSizeValue.textContent = `${pxToMm(config.gap, config.dpi)} mm`;
         config.outer_border = parseInt(outerBorderSizeSlider.value, 10);
-        outerBorderSizeValue.textContent = `${config.outer_border} px`;
+        outerBorderSizeValue.textContent = `${pxToMm(config.outer_border, config.dpi)} mm`;
         config.border_color = borderColorInput.value;
         // Keep preview background in sync with selected border color
         previewImage.style.backgroundColor = config.border_color;
@@ -329,9 +333,9 @@ document.addEventListener('DOMContentLoaded', () => {
         outputDpiSelect.value = config.dpi;
         imageFittingSelect.value = config.fit_mode;
         borderSizeSlider.value = config.gap;
-        borderSizeValue.textContent = `${config.gap} px`;
+        borderSizeValue.textContent = `${pxToMm(config.gap, config.dpi)} mm`;
         outerBorderSizeSlider.value = config.outer_border;
-        outerBorderSizeValue.textContent = `${config.outer_border} px`;
+        outerBorderSizeValue.textContent = `${pxToMm(config.outer_border, config.dpi)} mm`;
         borderColorInput.value = config.border_color;
         // Sync preview background with current border color
         previewImage.style.backgroundColor = config.border_color;
@@ -465,12 +469,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 isDragging = true;
                 e.dataTransfer.setData('text/plain', thumbnail.dataset.path);
                 e.dataTransfer.effectAllowed = 'move';
+                dropZones.forEach(z => z.classList.add('drag-active'));
             }
         });
 
         document.addEventListener('dragend', () => {
             isDragging = false;
-            dropZones.forEach(zone => zone.classList.remove('drag-over'));
+            dropZones.forEach(zone => {
+                zone.classList.remove('drag-over');
+                zone.classList.remove('drag-active');
+            });
         });
 
         // Handle drop zone events
@@ -498,6 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
             zone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 zone.classList.remove('drag-over');
+                zone.classList.remove('drag-active');
                 
                 const path = e.dataTransfer.getData('text/plain');
                 const slot = zone.dataset.slot;
@@ -584,5 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingOverlay.classList.add('hidden');
     }
 
-    init();
-});
+    return { init };
+})();
+
+document.addEventListener('DOMContentLoaded', () => DiptychApp.init());
