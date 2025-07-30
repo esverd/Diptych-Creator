@@ -41,6 +41,9 @@ os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
 # --- Progress Tracking ---
 progress_data = {"processed": 0, "total": 0}
 progress_lock = threading.Lock()
+# Track upload time for each file so auto grouping can fall back to the
+# actual upload moment rather than relying on the filesystem timestamp.
+UPLOAD_TIMES = {}
 
 # --- Helper Functions ---
 def create_single_thumbnail(full_path):
@@ -71,6 +74,9 @@ def get_capture_time(full_path):
                             pass
     except Exception:
         pass
+    base = os.path.basename(full_path)
+    if base in UPLOAD_TIMES:
+        return UPLOAD_TIMES[base]
     return datetime.fromtimestamp(os.path.getmtime(full_path))
 
 # --- Flask Routes ---
@@ -106,6 +112,7 @@ def upload_images():
                 counter += 1
 
             file.save(save_path)
+            UPLOAD_TIMES[filename] = datetime.now()
             executor.submit(create_single_thumbnail, save_path)
             uploaded_filenames.append(filename)
             

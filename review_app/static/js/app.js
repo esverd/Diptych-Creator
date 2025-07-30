@@ -1,6 +1,6 @@
 // review_app/static/js/app.js
 
-document.addEventListener('DOMContentLoaded', () => {
+const DiptychApp = (() => {
     // --- STATE MANAGEMENT ---
     let appState = {
         images: [],
@@ -10,6 +10,10 @@ document.addEventListener('DOMContentLoaded', () => {
         isGenerating: false,
     };
     const PREVIEW_DEBOUNCE_DELAY = 300;
+
+    function pxToMm(px, dpi) {
+        return Math.round((px / dpi) * 25.4);
+    }
 
     // --- ELEMENT SELECTORS ---
     const fileUploader = document.getElementById('file-uploader');
@@ -180,22 +184,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function autoPairImages() {
         if (appState.images.length === 0) return;
-        showLoading('Pairing images...');
+        showLoading("Pairing images...");
         try {
+            const response = await fetch("/auto_group", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ threshold: 2 })
+            });
+            if (!response.ok) throw new Error("Auto-group request failed");
+            const result = await response.json();
             appState.diptychs = [];
-            const defaultConfig = { fit_mode: 'fit', gap: 20, width: 6, height: 4, orientation: 'landscape', dpi: 300, outer_border: 20, border_color: '#ffffff' };
-            for (let i = 0; i < appState.images.length; i += 2) {
-                const img1 = appState.images[i] ? { ...appState.images[i] } : null;
-                const img2 = appState.images[i + 1] ? { ...appState.images[i + 1] } : null;
+            const defaultConfig = { fit_mode: "fit", gap: 20, width: 6, height: 4, orientation: "landscape", dpi: 300, outer_border: 20, border_color: "#ffffff" };
+            result.pairs.forEach(pair => {
+                const img1 = pair[0] ? { path: pair[0] } : null;
+                const img2 = pair[1] ? { path: pair[1] } : null;
                 appState.diptychs.push({ image1: img1, image2: img2, config: { ...defaultConfig } });
-            }
+            });
             if (appState.diptychs.length === 0) addNewDiptych();
             appState.activeDiptychIndex = 0;
             renderDiptychTray();
             renderImagePool();
             renderActiveDiptychUI();
         } catch (err) {
-            alert('Auto pairing failed: ' + err.message);
+            alert("Auto pairing failed: " + err.message);
         } finally {
             hideLoading();
         }
@@ -225,9 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
         config.dpi = parseInt(outputDpiSelect.value, 10);
         config.fit_mode = imageFittingSelect.value;
         config.gap = parseInt(borderSizeSlider.value, 10);
-        borderSizeValue.textContent = `${config.gap} px`;
+        borderSizeValue.textContent = `${pxToMm(config.gap, config.dpi)} mm`;
         config.outer_border = parseInt(outerBorderSizeSlider.value, 10);
-        outerBorderSizeValue.textContent = `${config.outer_border} px`;
+        outerBorderSizeValue.textContent = `${pxToMm(config.outer_border, config.dpi)} mm`;
         config.border_color = borderColorInput.value;
         // Keep preview background in sync with selected border color
         previewImage.style.backgroundColor = config.border_color;
@@ -329,9 +340,9 @@ document.addEventListener('DOMContentLoaded', () => {
         outputDpiSelect.value = config.dpi;
         imageFittingSelect.value = config.fit_mode;
         borderSizeSlider.value = config.gap;
-        borderSizeValue.textContent = `${config.gap} px`;
+        borderSizeValue.textContent = `${pxToMm(config.gap, config.dpi)} mm`;
         outerBorderSizeSlider.value = config.outer_border;
-        outerBorderSizeValue.textContent = `${config.outer_border} px`;
+        outerBorderSizeValue.textContent = `${pxToMm(config.outer_border, config.dpi)} mm`;
         borderColorInput.value = config.border_color;
         // Sync preview background with current border color
         previewImage.style.backgroundColor = config.border_color;
@@ -465,12 +476,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 isDragging = true;
                 e.dataTransfer.setData('text/plain', thumbnail.dataset.path);
                 e.dataTransfer.effectAllowed = 'move';
+                dropZones.forEach(z => z.classList.add('drag-active'));
             }
         });
 
         document.addEventListener('dragend', () => {
             isDragging = false;
-            dropZones.forEach(zone => zone.classList.remove('drag-over'));
+            dropZones.forEach(zone => {
+                zone.classList.remove('drag-over');
+                zone.classList.remove('drag-active');
+            });
         });
 
         // Handle drop zone events
@@ -498,6 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
             zone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 zone.classList.remove('drag-over');
+                zone.classList.remove('drag-active');
                 
                 const path = e.dataTransfer.getData('text/plain');
                 const slot = zone.dataset.slot;
@@ -584,5 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingOverlay.classList.add('hidden');
     }
 
-    init();
-});
+    return { init };
+})();
+
+document.addEventListener('DOMContentLoaded', () => DiptychApp.init());
