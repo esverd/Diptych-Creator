@@ -184,22 +184,29 @@ const DiptychApp = (() => {
 
     async function autoPairImages() {
         if (appState.images.length === 0) return;
-        showLoading('Pairing images...');
+        showLoading("Pairing images...");
         try {
+            const response = await fetch("/auto_group", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ threshold: 2 })
+            });
+            if (!response.ok) throw new Error("Auto-group request failed");
+            const result = await response.json();
             appState.diptychs = [];
-            const defaultConfig = { fit_mode: 'fit', gap: 20, width: 6, height: 4, orientation: 'landscape', dpi: 300, outer_border: 20, border_color: '#ffffff' };
-            for (let i = 0; i < appState.images.length; i += 2) {
-                const img1 = appState.images[i] ? { ...appState.images[i] } : null;
-                const img2 = appState.images[i + 1] ? { ...appState.images[i + 1] } : null;
+            const defaultConfig = { fit_mode: "fit", gap: 20, width: 6, height: 4, orientation: "landscape", dpi: 300, outer_border: 20, border_color: "#ffffff" };
+            result.pairs.forEach(pair => {
+                const img1 = pair[0] ? { path: pair[0] } : null;
+                const img2 = pair[1] ? { path: pair[1] } : null;
                 appState.diptychs.push({ image1: img1, image2: img2, config: { ...defaultConfig } });
-            }
+            });
             if (appState.diptychs.length === 0) addNewDiptych();
             appState.activeDiptychIndex = 0;
             renderDiptychTray();
             renderImagePool();
             renderActiveDiptychUI();
         } catch (err) {
-            alert('Auto pairing failed: ' + err.message);
+            alert("Auto pairing failed: " + err.message);
         } finally {
             hideLoading();
         }

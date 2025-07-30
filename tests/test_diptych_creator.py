@@ -11,6 +11,7 @@ if PROJECT_ROOT not in sys.path:
 
 from diptych_creator import create_diptych_canvas, process_source_image
 from app import get_capture_time, UPLOAD_TIMES
+import app as flask_app
 from datetime import datetime
 
 def cell_size(final_dims, gap, outer=0, both=True):
@@ -77,3 +78,33 @@ def test_get_capture_time_falls_back_to_upload(tmp_path):
         assert ts == UPLOAD_TIMES['sample.jpg']
     finally:
         UPLOAD_TIMES.clear()
+
+def test_auto_group_pairs_by_capture(tmp_path):
+    old_dir = flask_app.UPLOAD_DIR
+    flask_app.UPLOAD_DIR = str(tmp_path)
+    os.makedirs(flask_app.UPLOAD_DIR, exist_ok=True)
+    flask_app.UPLOAD_TIMES.clear()
+
+    dt1 = datetime(2021, 1, 1, 12, 0, 0)
+    dt2 = datetime(2021, 1, 1, 12, 0, 1)
+    exif_tag = flask_app.DATE_TAGS[0]
+    img = Image.new('RGB', (5, 5), 'white')
+    exif = Image.Exif()
+    exif[exif_tag] = dt1.strftime('%Y:%m:%d %H:%M:%S')
+    img.save(os.path.join(flask_app.UPLOAD_DIR, 'a1.jpg'), exif=exif)
+    exif = Image.Exif()
+    exif[exif_tag] = dt2.strftime('%Y:%m:%d %H:%M:%S')
+    img.save(os.path.join(flask_app.UPLOAD_DIR, 'a2.jpg'), exif=exif)
+
+    Image.new('RGB', (5, 5), 'white').save(os.path.join(flask_app.UPLOAD_DIR, 'b1.jpg'))
+    Image.new('RGB', (5, 5), 'white').save(os.path.join(flask_app.UPLOAD_DIR, 'b2.jpg'))
+    flask_app.UPLOAD_TIMES['b1.jpg'] = datetime(2021, 1, 2, 12, 0, 0)
+    flask_app.UPLOAD_TIMES['b2.jpg'] = datetime(2021, 1, 2, 12, 0, 1)
+
+    client = flask_app.app.test_client()
+    resp = client.post('/auto_group', json={'threshold': 2})
+    data = resp.get_json()
+    assert data['pairs'] == [['a1.jpg', 'a2.jpg'], ['b1.jpg', 'b2.jpg']]
+
+    flask_app.UPLOAD_DIR = old_dir
+    flask_app.UPLOAD_TIMES.clear()
