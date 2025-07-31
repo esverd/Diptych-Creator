@@ -11,6 +11,28 @@ except (AttributeError, StopIteration):
 def calculate_pixel_dimensions(width_in, height_in, dpi):
     return (int(width_in * dpi), int(height_in * dpi))
 
+def calculate_diptych_dimensions(config, dpi):
+    """Return final and processing dimensions plus border and gap as ints."""
+    width = float(config.get('width', 10))
+    height = float(config.get('height', 8))
+    orientation = config.get('orientation')
+    if orientation == 'portrait':
+        width, height = height, width
+
+    final_dims = calculate_pixel_dimensions(width, height, dpi)
+    outer_border_px = int(config.get('outer_border', 0))
+    gap_px = int(config.get('gap', 0))
+
+    inner_w = final_dims[0] - 2 * outer_border_px
+    inner_h = final_dims[1] - 2 * outer_border_px
+
+    if orientation == 'portrait':
+        processing_dims = (inner_w, inner_h - gap_px)
+    else:
+        processing_dims = (inner_w - gap_px, inner_h)
+
+    return final_dims, processing_dims, outer_border_px, gap_px
+
 def apply_exif_orientation(img):
     if not ORIENTATION_TAG or not hasattr(img, '_getexif'):
         return img
@@ -113,18 +135,16 @@ def create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px=0, bor
 
 def create_diptych(image_data1, image_data2, output_path, final_dims, gap_px, fit_mode, dpi, outer_border_px=0, border_color='white'):
     """Processes two source images and saves the resulting diptych with correct DPI and outer border."""
-    final_width, final_height = final_dims
-    is_landscape_diptych = final_width > final_height
-
-    # Dimensions available for both images after accounting for the outer border
-    inner_w = final_width - 2 * outer_border_px
-    inner_h = final_height - 2 * outer_border_px
-    effective_gap = gap_px
-
-    if is_landscape_diptych:
-        processing_dims = (inner_w - effective_gap, inner_h)
-    else:
-        processing_dims = (inner_w, inner_h - effective_gap)
+    _, processing_dims, _, _ = calculate_diptych_dimensions(
+        {
+            'width': final_dims[0] / dpi,
+            'height': final_dims[1] / dpi,
+            'gap': gap_px,
+            'outer_border': outer_border_px,
+            'orientation': 'landscape' if final_dims[0] > final_dims[1] else 'portrait',
+        },
+        dpi,
+    )
 
     img1 = process_source_image(image_data1['path'], processing_dims, image_data1.get('rotation', 0), fit_mode)
     img2 = process_source_image(image_data2['path'], processing_dims, image_data2.get('rotation', 0), fit_mode)
