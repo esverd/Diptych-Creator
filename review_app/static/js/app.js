@@ -186,13 +186,20 @@ const DiptychApp = (() => {
         if (appState.images.length === 0) return;
         showLoading('Pairing images...');
         try {
-            appState.diptychs = [];
-            const defaultConfig = { fit_mode: 'fit', gap: 20, width: 6, height: 4, orientation: 'landscape', dpi: 300, outer_border: 20, border_color: '#ffffff' };
-            for (let i = 0; i < appState.images.length; i += 2) {
-                const img1 = appState.images[i] ? { ...appState.images[i] } : null;
-                const img2 = appState.images[i + 1] ? { ...appState.images[i + 1] } : null;
-                appState.diptychs.push({ image1: img1, image2: img2, config: { ...defaultConfig } });
-            }
+            const baseConfig = appState.diptychs.length > 0
+                ? { ...appState.diptychs[appState.activeDiptychIndex].config }
+                : { fit_mode: 'fit', gap: 20, width: 6, height: 4, orientation: 'landscape', dpi: 300, outer_border: 20, border_color: '#ffffff' };
+
+            const response = await fetch('/auto_group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+            if (!response.ok) throw new Error('Auto grouping failed');
+            const data = await response.json();
+
+            appState.diptychs = data.pairs.map(p => ({
+                image1: p[0] ? { path: p[0] } : null,
+                image2: p[1] ? { path: p[1] } : null,
+                config: { ...baseConfig }
+            }));
+
             if (appState.diptychs.length === 0) addNewDiptych();
             appState.activeDiptychIndex = 0;
             renderDiptychTray();

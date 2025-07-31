@@ -129,9 +129,7 @@ def get_thumbnail(filename):
 
 @app.route('/auto_group', methods=['POST'])
 def auto_group():
-    """Automatically group images into diptychs based on capture time."""
-    data = request.get_json() or {}
-    threshold = float(data.get('threshold', 2))
+    """Automatically group images chronologically into diptychs."""
     files = [f for f in os.listdir(UPLOAD_DIR) if os.path.isfile(os.path.join(UPLOAD_DIR, f))]
     info = []
     for f in files:
@@ -140,13 +138,12 @@ def auto_group():
     info.sort(key=lambda x: x['time'])
 
     pairs = []
-    i = 0
-    while i < len(info) - 1:
-        if (info[i+1]['time'] - info[i]['time']).total_seconds() <= threshold:
-            pairs.append([info[i]['name'], info[i+1]['name']])
-            i += 2
-        else:
-            i += 1
+    for i in range(0, len(info), 2):
+        pair = [info[i]['name']]
+        if i + 1 < len(info):
+            pair.append(info[i + 1]['name'])
+        pairs.append(pair)
+
     return jsonify({'pairs': pairs})
 
 # --- WYSIWYG PREVIEW ENDPOINT ---

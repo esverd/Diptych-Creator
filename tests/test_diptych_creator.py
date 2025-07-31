@@ -10,7 +10,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from diptych_creator import create_diptych_canvas, process_source_image
-from app import get_capture_time, UPLOAD_TIMES
+from app import app, get_capture_time, UPLOAD_TIMES, UPLOAD_DIR
 from datetime import datetime
 
 def cell_size(final_dims, gap, outer=0, both=True):
@@ -91,4 +91,28 @@ def test_fit_mode_background_color(tmp_path):
         background_color='#ff0000',
     )
     assert result.getpixel((0, 0)) == (255, 0, 0)
+
+
+def test_auto_group_chronological(tmp_path):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    img1 = os.path.join(UPLOAD_DIR, 'old.jpg')
+    img2 = os.path.join(UPLOAD_DIR, 'mid.jpg')
+    img3 = os.path.join(UPLOAD_DIR, 'new.jpg')
+    Image.new('RGB', (10, 10), 'red').save(img1)
+    Image.new('RGB', (10, 10), 'green').save(img2)
+    Image.new('RGB', (10, 10), 'blue').save(img3)
+    t1 = datetime(2020, 1, 1).timestamp()
+    t2 = datetime(2020, 1, 2).timestamp()
+    t3 = datetime(2020, 1, 3).timestamp()
+    os.utime(img1, (t1, t1))
+    os.utime(img2, (t2, t2))
+    os.utime(img3, (t3, t3))
+
+    with app.test_client() as client:
+        resp = client.post('/auto_group', json={})
+        assert resp.status_code == 200
+        pairs = resp.get_json()['pairs']
+
+    assert pairs[0] == ['old.jpg', 'mid.jpg']
+
 
