@@ -4,7 +4,7 @@ from PIL import Image
 
 from app import app, UPLOAD_DIR
 from diptych_creator import (
-    calculate_pixel_dimensions,
+    calculate_diptych_dimensions,
     process_source_image,
     create_diptych_canvas,
 )
@@ -43,13 +43,7 @@ def test_preview_matches_final(tmp_path):
         assert resp.status_code == 200
         preview = Image.open(io.BytesIO(resp.data))
 
-    final_dims = calculate_pixel_dimensions(config['width'], config['height'], config['dpi'])
-    inner_w = final_dims[0] - 2 * config['outer_border']
-    inner_h = final_dims[1] - 2 * config['outer_border']
-    if config['orientation'] == 'portrait':
-        processing = (inner_w, inner_h - config['gap'])
-    else:
-        processing = (inner_w - config['gap'], inner_h)
+    final_dims, processing, _, gap_px = calculate_diptych_dimensions(config, config['dpi'])
 
     img1 = process_source_image(img1_path, processing, 0, config['fit_mode'])
     img2 = process_source_image(img2_path, processing, 0, config['fit_mode'])
@@ -57,7 +51,7 @@ def test_preview_matches_final(tmp_path):
         img1,
         img2,
         final_dims,
-        config['gap'],
+        gap_px,
         config['outer_border'],
         config['border_color']
     )
@@ -83,6 +77,7 @@ def test_preview_missing_file(tmp_path):
 
     with app.test_client() as client:
         resp = client.post('/get_wysiwyg_preview', json={'diptych': diptych})
+
         assert resp.status_code == 404
 
 
@@ -118,3 +113,4 @@ def test_preview_fit_background_color(tmp_path):
     r, g, b = preview.getpixel((0, 0))
     assert r > 240 and g < 30 and b < 30
 
+        assert resp.status_code == 404
