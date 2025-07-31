@@ -99,7 +99,6 @@
     cursor: not-allowed;
 }
 
-
 /* --- Configuration Panel --- */
 .config-heading {
     font-size: 0.875rem;
@@ -219,7 +218,7 @@
 
 .drop-zone {
     /* Make drop zones transparent so the underlying preview is visible */
-    background-color: transparent; 
+    background-color: transparent;
     border: 2px dashed transparent;
     transition: background-color 0.2s, border-color 0.2s;
 }
@@ -236,7 +235,6 @@
     border-style: solid;
     outline: 2px dashed var(--primary-color);
 }
-
 
 /* --- Bottom Diptych Tray --- */
 .diptych-tray-item {
@@ -353,17 +351,14 @@
         overflow-y: auto;
         transition: transform 0.3s ease-in-out;
     }
-
     #left-panel {
         left: 0;
         transform: translateX(-100%);
     }
-
     #right-panel {
         right: 0;
         transform: translateX(100%);
     }
-
     #left-panel:not(.hidden),
     #right-panel:not(.hidden) {
         transform: translateX(0);

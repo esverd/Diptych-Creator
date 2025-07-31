@@ -10,7 +10,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Use a relative path to load the compiled CSS when served from the filesystem.
+         We avoid Flask's `url_for` helper here because this file may be opened directly
+         from disk during development, in which case Jinja templating won't run. -->
+    <link rel="stylesheet" href="../static/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body class="bg-white text-[var(--text-primary)]" style="font-family: Manrope, 'Noto Sans', sans-serif;">
@@ -36,8 +39,13 @@
                 <h1 class="text-lg font-bold tracking-tight">Diptych Master</h1>
             </div>
             <div class="flex items-center gap-2">
-                <button id="auto-pair-btn" class="btn btn-secondary"><span class="truncate">Auto Pair</span></button>
-                <button id="download-btn" class="btn btn-primary"><span class="truncate">Download All</span></button>
+                <!-- Auto pairing options: select grouping method and then auto-pair -->
+                <select id="grouping-method" aria-label="Auto pair grouping method" class="form-select mr-2" style="padding: 0.5rem 0.75rem; border-radius: 0.375rem; border: 1px solid var(--border-color); background-color: white; color: var(--text-primary);">
+                    <option value="chronological">Chronological</option>
+                    <option value="orientation">By Orientation</option>
+                </select>
+                <button id="auto-pair-btn" aria-label="Automatically pair images" class="btn btn-secondary"><span class="truncate">Auto Pair</span></button>
+                <button id="download-btn" aria-label="Download all diptychs" class="btn btn-primary"><span class="truncate">Download All</span></button>
                 <button id="mobile-menu-btn" class="icon-btn md:hidden"></button>
             </div>
         </header>
@@ -124,27 +132,58 @@
                             <label class="config-label" for="border-color">Border Color</label>
                             <input type="color" id="border-color" name="border-color" value="#ffffff" class="form-input-custom" style="width: 3rem; height: 2rem; padding: 0; border-radius: 0.5rem;">
                         </div>
+                        <!-- Crop focus controls allow users to choose which part of the image
+                             is preserved when cropping.  Horizontal (left, center, right) and
+                             vertical (top, center, bottom) positions map to 0.0, 0.5 and 1.0
+                             respectively. -->
+                        <div>
+                            <label class="config-label" for="crop-focus-h">Crop Focus</label>
+                            <div class="flex gap-2 mt-1">
+                                <select id="crop-focus-h" name="crop-focus-h" aria-label="Horizontal crop focus" class="form-input-custom flex-1">
+                                    <option value="0">Left</option>
+                                    <option value="0.5" selected>Center</option>
+                                    <option value="1">Right</option>
+                                </select>
+                                <select id="crop-focus-v" name="crop-focus-v" aria-label="Vertical crop focus" class="form-input-custom flex-1">
+                                    <option value="0">Top</option>
+                                    <option value="0.5" selected>Center</option>
+                                    <option value="1">Bottom</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div id="image-1-controls" class="hidden">
                     <h3 class="config-heading">Image 1</h3>
                     <div class="flex gap-2">
-                        <button data-slot="1" class="btn-rotate btn btn-secondary flex-1 text-xs"><svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>Rotate</button>
-                        <button data-slot="1" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 flex-1 text-xs"><svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Remove</button>
+                        <button data-slot="1" class="btn-rotate btn btn-secondary flex-1 text-xs" aria-label="Rotate Image 1" title="Rotate Image 1">
+                            <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                            Rotate
+                        </button>
+                        <button data-slot="1" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 flex-1 text-xs" aria-label="Remove Image 1" title="Remove Image 1">
+                            <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            Remove
+                        </button>
                     </div>
                 </div>
                 <div id="image-2-controls" class="hidden">
                     <h3 class="config-heading">Image 2</h3>
                     <div class="flex gap-2">
-                        <button data-slot="2" class="btn-rotate btn btn-secondary flex-1 text-xs"><svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>Rotate</button>
-                        <button data-slot="2" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 flex-1 text-xs"><svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Remove</button>
+                        <button data-slot="2" class="btn-rotate btn btn-secondary flex-1 text-xs" aria-label="Rotate Image 2" title="Rotate Image 2">
+                            <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                            Rotate
+                        </button>
+                        <button data-slot="2" class="btn-remove btn bg-red-100 text-[var(--primary-color)] hover:bg-red-200 flex-1 text-xs" aria-label="Remove Image 2" title="Remove Image 2">
+                            <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            Remove
+                        </button>
                     </div>
                 </div>
-                 <div class="pt-4 border-t border-[var(--accent-color)]">
-                     <label class="config-label flex flex-row items-center justify-between">
+                <div class="pt-4 border-t border-[var(--accent-color)]">
+                    <label class="config-label flex flex-row items-center justify-between">
                         <span>Download as .zip</span>
                         <input type="checkbox" id="zip-toggle" class="form-checkbox h-5 w-5 rounded text-red-700 focus:ring-red-600" checked>
-                     </label>
+                    </label>
                 </div>
             </aside>
         </main>
@@ -156,15 +195,20 @@
                 <button id="scroll-right-btn" class="icon-btn !size-8 shrink-0"><svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg></button>
             </div>
         </div>
-        
+
         <div id="loading-overlay" class="hidden absolute inset-0 z-50 bg-white/70 backdrop-blur-sm flex items-center justify-center">
             <div class="text-center w-64">
                 <div class="loader"></div>
                 <p id="progress-text" class="text-lg font-semibold mt-4">Loading...</p>
-                <div class="progress-bar-container"><div id="progress-bar" class="progress-bar"></div></div>
+                <div class="progress-bar-container">
+                    <!-- Add role and ARIA attributes to the progress bar for accessibility.  Screen readers will
+                         announce the progress percentage via aria-valuenow, which is updated dynamically in JS. -->
+                    <div id="progress-bar" class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+                </div>
             </div>
         </div>
     </div>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <!-- Use a relative path for the app script when the file is opened locally. -->
+    <script src="../static/js/app.js"></script>
 </body>
 </html>
