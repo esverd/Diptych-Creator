@@ -99,6 +99,15 @@ const DiptychApp = (() => {
         }
     }
 
+    function updateCanvasAspectRatio(config) {
+        let w = config.width;
+        let h = config.height;
+        if (config.orientation === 'portrait') {
+            [w, h] = [h, w];
+        }
+        mainCanvas.style.aspectRatio = `${w} / ${h}`;
+    }
+
     function updateMobileMenuIcon() {
         mobileMenuBtn.innerHTML = (leftPanel.classList.contains('hidden') && rightPanel.classList.contains('hidden')) ? hamburgerIcon : closeIcon;
     }
@@ -329,7 +338,8 @@ const DiptychApp = (() => {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
         const { config } = activeDiptych;
-        
+        updateCanvasAspectRatio(config);
+
         const sizeValue = `${config.width}x${config.height}`;
         outputSizeSelect.value = outputSizeSelect.querySelector(`option[value="${sizeValue}"]`) ? sizeValue : 'custom';
         
