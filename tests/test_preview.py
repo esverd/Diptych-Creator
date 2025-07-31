@@ -113,4 +113,3 @@ def test_preview_fit_background_color(tmp_path):
     r, g, b = preview.getpixel((0, 0))
     assert r > 240 and g < 30 and b < 30
 
-        assert resp.status_code == 404
