@@ -47,7 +47,14 @@ def apply_exif_orientation(img):
         pass
     return img
 
-def process_source_image(image_path, target_diptych_dims, rotation_override=0, fit_mode='fill', auto_rotate=True):
+def process_source_image(
+    image_path,
+    target_diptych_dims,
+    rotation_override=0,
+    fit_mode='fill',
+    auto_rotate=True,
+    background_color='white',
+):
     try:
         with Image.open(image_path) as img:
             img = apply_exif_orientation(img)
@@ -81,7 +88,7 @@ def process_source_image(image_path, target_diptych_dims, rotation_override=0, f
                 return img.resize((half_w, half_h), Image.Resampling.LANCZOS)
             else:
                 img.thumbnail((half_w, half_h), Image.Resampling.LANCZOS)
-                background = Image.new('RGB', (half_w, half_h), 'white')
+                background = Image.new('RGB', (half_w, half_h), background_color)
                 paste_x = (half_w - img.width) // 2
                 paste_y = (half_h - img.height) // 2
                 background.paste(img, (paste_x, paste_y))
@@ -147,8 +154,22 @@ def create_diptych(image_data1, image_data2, output_path, final_dims, gap_px, fi
         dpi,
     )
 
-    img1 = process_source_image(image_data1['path'], processing_dims, image_data1.get('rotation', 0), fit_mode)
-    img2 = process_source_image(image_data2['path'], processing_dims, image_data2.get('rotation', 0), fit_mode)
+    img1 = process_source_image(
+        image_data1['path'],
+        processing_dims,
+        image_data1.get('rotation', 0),
+        fit_mode,
+        True,
+        border_color,
+    )
+    img2 = process_source_image(
+        image_data2['path'],
+        processing_dims,
+        image_data2.get('rotation', 0),
+        fit_mode,
+        True,
+        border_color,
+    )
     if not img1 or not img2:
         print(f"Skipping diptych due to image processing error.")
         return
