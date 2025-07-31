@@ -11,6 +11,15 @@ except (AttributeError, StopIteration):
 def calculate_pixel_dimensions(width_in, height_in, dpi):
     return (int(width_in * dpi), int(height_in * dpi))
 
+def compute_final_dimensions(config, dpi_override=None):
+    """Return final pixel dimensions respecting orientation and DPI."""
+    width = float(config.get('width', 10))
+    height = float(config.get('height', 8))
+    if config.get('orientation') == 'portrait':
+        width, height = height, width
+    dpi_value = int(dpi_override if dpi_override is not None else config.get('dpi', 72))
+    return calculate_pixel_dimensions(width, height, dpi_value)
+
 def apply_exif_orientation(img):
     if not ORIENTATION_TAG or not hasattr(img, '_getexif'):
         return img

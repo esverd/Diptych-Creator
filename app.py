@@ -169,45 +169,52 @@ def get_wysiwyg_preview():
         if not image1_data and not image2_data:
             return "No images to preview", 400
 
-        # Use a lower DPI for previews to make them generate faster
-        preview_dpi = 72
-        
-        # Handle orientation for the preview dimensions
-        width = float(config.get('width', 10))
-        height = float(config.get('height', 8))
-        if config.get('orientation') == 'portrait':
-            width, height = height, width
+        # Use the requested DPI but cap it for performance
+        PREVIEW_DPI_LIMIT = 150
+        preview_dpi = min(int(config.get('dpi', 72)), PREVIEW_DPI_LIMIT)
 
-        final_dims = diptych_creator.calculate_pixel_dimensions(width, height, preview_dpi)
+        # Compute final dimensions using shared helper
+        final_dims = diptych_creator.compute_final_dimensions(config, preview_dpi)
 
         outer_border_px = int(config.get('outer_border', 0))
         border_color = config.get('border_color', 'white')
 
+        inner_w = final_dims[0] - 2 * outer_border_px
+        inner_h = final_dims[1] - 2 * outer_border_px
+        effective_gap = int(config.get('gap', 0))
+
+        if config.get('orientation') == 'portrait':
+            processing_dims = (inner_w, inner_h - effective_gap)
+        else:
+            processing_dims = (inner_w - effective_gap, inner_h)
+
         img1, img2 = None, None
         if image1_data:
             path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image1_data['path'])))
-            if os.path.exists(path1):
-                img1 = diptych_creator.process_source_image(
-                    path1,
-                    final_dims,
-                    image1_data.get('rotation', 0),
-                    config.get('fit_mode', 'fill')
-                )
+            if not os.path.exists(path1):
+                return jsonify({"error": f"Image not found: {image1_data['path']}"}), 404
+            img1 = diptych_creator.process_source_image(
+                path1,
+                processing_dims,
+                image1_data.get('rotation', 0),
+                config.get('fit_mode', 'fill')
+            )
 
         if image2_data:
             path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image2_data['path'])))
-            if os.path.exists(path2):
-                img2 = diptych_creator.process_source_image(
-                    path2,
-                    final_dims,
-                    image2_data.get('rotation', 0),
-                    config.get('fit_mode', 'fill')
-                )
+            if not os.path.exists(path2):
+                return jsonify({"error": f"Image not found: {image2_data['path']}"}), 404
+            img2 = diptych_creator.process_source_image(
+                path2,
+                processing_dims,
+                image2_data.get('rotation', 0),
+                config.get('fit_mode', 'fill')
+            )
 
         if not img1 and not img2:
             return "Error processing images", 500
 
-        canvas = diptych_creator.create_diptych_canvas(img1, img2, final_dims, config.get('gap', 0), outer_border_px, border_color)
+        canvas = diptych_creator.create_diptych_canvas(img1, img2, final_dims, effective_gap, outer_border_px, border_color)
         if not canvas:
             return "Error creating preview canvas", 500
 
@@ -240,23 +247,19 @@ def generate_diptychs():
             pair_data = job['pair']
             config = job['config']
             
-            # Handle orientation for final output dimensions
-            width = float(config['width'])
-            height = float(config['height'])
-            if config.get('orientation') == 'portrait':
-                width, height = height, width
-            
-            final_dims = diptych_creator.calculate_pixel_dimensions(width, height, config['dpi'])
+            # Shared dimension logic
+            final_dims = diptych_creator.compute_final_dimensions(config)
             path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(pair_data[0]['path'])))
             path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(pair_data[1]['path'])))
             final_path = os.path.join(output_dir, f"diptych_{i+1}.jpg")
 
             outer_border_px = int(config.get('outer_border', 0))
             border_color = config.get('border_color', 'white')
+            gap_px = int(config.get('gap', 0))
             diptych_creator.create_diptych(
                 {'path': path1, 'rotation': pair_data[0].get('rotation', 0)},
                 {'path': path2, 'rotation': pair_data[1].get('rotation', 0)},
-                final_path, final_dims, config['gap'], config['fit_mode'], config['dpi'], outer_border_px, border_color
+                final_path, final_dims, gap_px, config['fit_mode'], config['dpi'], outer_border_px, border_color
             )
             with progress_lock:
                 progress_data["processed"] += 1
