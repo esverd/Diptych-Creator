@@ -168,19 +168,11 @@ def get_wysiwyg_preview():
 
         if not image1_data and not image2_data:
             return "No images to preview", 400
+        
+        # Use the requested DPI but cap it to keep previews fast
+        preview_dpi = min(int(config.get('dpi', 72)), 150)
 
-        # Use the requested DPI for consistency with the final output
-        preview_dpi = int(config.get('dpi', 72))
-
-        # Handle orientation for the preview dimensions
-        width = float(config.get('width', 10))
-        height = float(config.get('height', 8))
-        if config.get('orientation') == 'portrait':
-            width, height = height, width
-
-        final_dims = diptych_creator.calculate_pixel_dimensions(width, height, preview_dpi)
-
-        outer_border_px = int(config.get('outer_border', 0))
+        final_dims, processing_dims, outer_border_px, effective_gap = diptych_creator.calculate_diptych_dimensions(config, preview_dpi)
         border_color = config.get('border_color', 'white')
 
         inner_w = final_dims[0] - 2 * outer_border_px
@@ -252,22 +244,16 @@ def generate_diptychs():
             config = job['config']
             
             # Handle orientation for final output dimensions
-            width = float(config['width'])
-            height = float(config['height'])
-            if config.get('orientation') == 'portrait':
-                width, height = height, width
-            
-            final_dims = diptych_creator.calculate_pixel_dimensions(width, height, config['dpi'])
+            final_dims, _, outer_border_px, gap_px = diptych_creator.calculate_diptych_dimensions(config, config['dpi'])
             path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(pair_data[0]['path'])))
             path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(pair_data[1]['path'])))
             final_path = os.path.join(output_dir, f"diptych_{i+1}.jpg")
 
-            outer_border_px = int(config.get('outer_border', 0))
             border_color = config.get('border_color', 'white')
             diptych_creator.create_diptych(
                 {'path': path1, 'rotation': pair_data[0].get('rotation', 0)},
                 {'path': path2, 'rotation': pair_data[1].get('rotation', 0)},
-                final_path, final_dims, config['gap'], config['fit_mode'], config['dpi'], outer_border_px, border_color
+                final_path, final_dims, gap_px, config['fit_mode'], config['dpi'], outer_border_px, border_color
             )
             with progress_lock:
                 progress_data["processed"] += 1
