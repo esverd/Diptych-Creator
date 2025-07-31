@@ -246,7 +246,7 @@
 .diptych-tray-preview {
     width: 7rem;
     height: 4rem;
-    border-radius: 0.375rem;
+    border-radius: 0;
     border: 2px solid var(--border-color);
     overflow: hidden;
     cursor: pointer;

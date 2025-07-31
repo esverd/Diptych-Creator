@@ -77,3 +77,18 @@ def test_get_capture_time_falls_back_to_upload(tmp_path):
         assert ts == UPLOAD_TIMES['sample.jpg']
     finally:
         UPLOAD_TIMES.clear()
+
+
+def test_fit_mode_background_color(tmp_path):
+    path = tmp_path / "img.jpg"
+    Image.new('RGB', (10, 10), 'blue').save(path)
+    result = process_source_image(
+        str(path),
+        (40, 40),
+        rotation_override=0,
+        fit_mode='fit',
+        auto_rotate=False,
+        background_color='#ff0000',
+    )
+    assert result.getpixel((0, 0)) == (255, 0, 0)
+

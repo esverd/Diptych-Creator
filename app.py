@@ -201,7 +201,9 @@ def get_wysiwyg_preview():
                 path1,
                 processing_dims,
                 image1_data.get('rotation', 0),
-                config.get('fit_mode', 'fill')
+                config.get('fit_mode', 'fill'),
+                True,
+                config.get('border_color', 'white')
             )
 
         if image2_data:
@@ -212,7 +214,9 @@ def get_wysiwyg_preview():
                 path2,
                 processing_dims,
                 image2_data.get('rotation', 0),
-                config.get('fit_mode', 'fill')
+                config.get('fit_mode', 'fill'),
+                True,
+                config.get('border_color', 'white')
             )
 
         if not img1 and not img2:
