@@ -242,8 +242,6 @@
     flex-shrink: 0;
 }
 .diptych-tray-preview {
-    width: 7rem;
-    height: 4rem;
     border-radius: 0;
     border: 2px solid var(--border-color);
     overflow: hidden;
@@ -252,6 +250,18 @@
     background-color: var(--secondary-color);
     background-size: cover;
     background-position: center;
+}
+
+/* Landscape orientation preview */
+.diptych-tray-preview.landscape {
+    width: 7rem;
+    height: 4rem;
+}
+
+/* Portrait orientation preview */
+.diptych-tray-preview.portrait {
+    width: 4rem;
+    height: 7rem;
 }
 .diptych-tray-preview:hover {
     border-color: #9ca3af;

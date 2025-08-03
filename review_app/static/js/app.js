@@ -289,6 +289,7 @@ const DiptychApp = (() => {
         activeDiptych.config.orientation = activeDiptych.config.orientation === 'landscape' ? 'portrait' : 'landscape';
         renderActiveDiptychUI();
         updateActiveTrayPreview();
+        requestPreviewRefresh();
     }
 
     function handleRotate(e) {
@@ -513,6 +514,8 @@ const DiptychApp = (() => {
             if(element) element.style.backgroundImage = 'none';
             return;
         }
+        element.classList.toggle('portrait', diptych.config.orientation === 'portrait');
+        element.classList.toggle('landscape', diptych.config.orientation !== 'portrait');
         try {
             // Include crop_focus in payload
             const diptychPayload = JSON.parse(JSON.stringify(diptych));
