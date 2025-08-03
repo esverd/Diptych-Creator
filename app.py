@@ -47,6 +47,10 @@ os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
 # --- Progress Tracking ---
 progress_data = {"processed": 0, "total": 0}
 progress_lock = threading.Lock()
+# Track current diptych order on the server so that client-side
+# reordering can be preserved across operations.
+diptych_order = []
+order_lock = threading.Lock()
 # Store outstanding preview jobs keyed by an ID
 preview_jobs: dict[str, dict] = {}
 preview_lock = threading.Lock()
@@ -299,6 +303,19 @@ def auto_group():
             pairs.append(pair)
     return jsonify({'pairs': pairs, 'method': method})
 
+# --- Diptych Order Persistence ---
+@app.route('/update_diptych_order', methods=['POST'])
+def update_diptych_order():
+    """Persist the client-provided diptych order on the server."""
+    global diptych_order
+    data = request.get_json() or {}
+    order = data.get('order')
+    if not isinstance(order, list):
+        return jsonify({"status": "error", "message": "Invalid order"}), 400
+    with order_lock:
+        diptych_order = order
+    return jsonify({"status": "ok"})
+
 # --- Asynchronous Preview API ---
 @app.route('/request_preview', methods=['POST'])
 def request_preview():
@@ -417,10 +434,31 @@ def generate_diptychs():
     error occurs during processing, the progress data will contain an
     `error` field describing the failure.
     """
-    global progress_data
+    global progress_data, diptych_order
     data = request.get_json() or {}
     diptych_jobs = data.get('pairs', [])
     should_zip = bool(data.get('zip', True))
+    order = data.get('order')
+    if isinstance(order, list):
+        with order_lock:
+            diptych_order = order
+    else:
+        with order_lock:
+            order = list(diptych_order)
+    if order:
+        order_map = {
+            (item.get('image1'), item.get('image2')): idx
+            for idx, item in enumerate(order)
+        }
+        diptych_jobs.sort(
+            key=lambda job: order_map.get(
+                (
+                    job.get('pair', [{} , {}])[0].get('path'),
+                    job.get('pair', [{} , {}])[1].get('path'),
+                ),
+                len(order_map),
+            )
+        )
     # Prepare output directory with timestamp
     output_dir = os.path.join(OUTPUT_DIR_BASE, f"DiptychMaster_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     os.makedirs(output_dir, exist_ok=True)
