@@ -2,6 +2,7 @@ import os
 import sys
 import pytest
 from PIL import Image
+from PIL import ImageDraw
 
 # Ensure the project root is on the path when tests are executed from the
 # tests directory.
@@ -117,6 +118,8 @@ def test_fit_mode_background_color(tmp_path):
 def test_auto_group_chronological(tmp_path):
     clear_upload_dir()
     os.makedirs(UPLOAD_DIR, exist_ok=True)
+    for f in os.listdir(UPLOAD_DIR):
+        os.remove(os.path.join(UPLOAD_DIR, f))
     img1 = os.path.join(UPLOAD_DIR, 'old.jpg')
     img2 = os.path.join(UPLOAD_DIR, 'mid.jpg')
     img3 = os.path.join(UPLOAD_DIR, 'new.jpg')
@@ -222,4 +225,87 @@ def test_preserve_exif_metadata(tmp_path):
         assert exif_res.get(272) == 'UTModel'
         assert exif_res.get(306) == '2020:01:01 10:00:00'
 
+
+
+from PIL import ImageDraw
+
+
+def test_process_source_image_crop_focus(tmp_path):
+    path = tmp_path / "two_colors.jpg"
+    img = Image.new('RGB', (10, 40))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([0, 0, 9, 19], fill='red')
+    draw.rectangle([0, 20, 9, 39], fill='blue')
+    img.save(path)
+
+    top = process_source_image(
+        str(path),
+        (20, 40),
+        fit_mode='fill',
+        auto_rotate=False,
+        crop_focus=(0.5, 0.0),
+    )
+    bottom = process_source_image(
+        str(path),
+        (20, 40),
+        fit_mode='fill',
+        auto_rotate=False,
+        crop_focus=(0.5, 1.0),
+    )
+    r, g, b = top.getpixel((top.width // 2, top.height // 2))
+    assert r > 200 and b < 50
+    r, g, b = bottom.getpixel((bottom.width // 2, bottom.height // 2))
+    assert b > 200 and r < 50
+
+
+def test_create_diptych(tmp_path):
+    img1 = tmp_path / "img1.jpg"
+    img2 = tmp_path / "img2.jpg"
+    Image.new('RGB', (10, 10), 'red').save(img1)
+    Image.new('RGB', (10, 10), 'green').save(img2)
+    output = tmp_path / "out.jpg"
+
+    from diptych_creator import create_diptych
+
+    create_diptych(
+        {"path": str(img1)},
+        {"path": str(img2)},
+        str(output),
+        (40, 20),
+        gap_px=2,
+        fit_mode='fit',
+        dpi=72,
+        border_color='#00ff00',
+    )
+
+    result = Image.open(output)
+    assert result.size == (40, 20)
+    r, g, b = result.getpixel((0, 0))
+    assert abs(r - 0) < 10 and abs(g - 255) < 10 and b < 10
+
+
+def test_auto_group_orientation(tmp_path):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    for f in os.listdir(UPLOAD_DIR):
+        os.remove(os.path.join(UPLOAD_DIR, f))
+    land1 = os.path.join(UPLOAD_DIR, 'land1.jpg')
+    port1 = os.path.join(UPLOAD_DIR, 'port1.jpg')
+    land2 = os.path.join(UPLOAD_DIR, 'land2.jpg')
+    Image.new('RGB', (20, 10), 'red').save(land1)
+    Image.new('RGB', (10, 20), 'blue').save(port1)
+    Image.new('RGB', (20, 10), 'green').save(land2)
+    t1 = datetime(2020, 1, 1).timestamp()
+    t2 = datetime(2020, 1, 2).timestamp()
+    t3 = datetime(2020, 1, 3).timestamp()
+    os.utime(land1, (t1, t1))
+    os.utime(port1, (t2, t2))
+    os.utime(land2, (t3, t3))
+
+    with app.test_client() as client:
+        resp = client.post('/auto_group', json={'method': 'orientation'})
+        assert resp.status_code == 200
+        pairs = resp.get_json()['pairs']
+
+    assert pairs[0] == ['land1.jpg', 'land2.jpg']
+    assert pairs[1] == ['port1.jpg']
 
