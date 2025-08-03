@@ -9,7 +9,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from diptych_creator import create_diptych_canvas, process_source_image
+from diptych_creator import create_diptych_canvas, process_source_image, create_diptych
 from app import app, get_capture_time, UPLOAD_TIMES, UPLOAD_DIR
 from datetime import datetime
 
@@ -114,5 +114,33 @@ def test_auto_group_chronological(tmp_path):
         pairs = resp.get_json()['pairs']
 
     assert pairs[0] == ['old.jpg', 'mid.jpg']
+
+
+def test_preserve_exif_metadata(tmp_path):
+    img1 = tmp_path / "left.jpg"
+    img2 = tmp_path / "right.jpg"
+    im1 = Image.new('RGB', (10, 10), 'white')
+    exif = im1.getexif()
+    exif[271] = 'UnitTest'  # Make
+    exif[272] = 'UTModel'   # Model
+    exif[306] = '2020:01:01 10:00:00'  # DateTime
+    im1.save(img1, exif=exif)
+    Image.new('RGB', (10, 10), 'black').save(img2)
+    out = tmp_path / "out.jpg"
+    create_diptych(
+        {'path': str(img1)},
+        {'path': str(img2)},
+        str(out),
+        (20, 10),
+        0,
+        'fill',
+        72,
+        preserve_exif=True,
+    )
+    with Image.open(out) as result:
+        exif_res = result.getexif()
+        assert exif_res.get(271) == 'UnitTest'
+        assert exif_res.get(272) == 'UTModel'
+        assert exif_res.get(306) == '2020:01:01 10:00:00'
 
 

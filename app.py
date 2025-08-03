@@ -467,6 +467,7 @@ def generate_diptychs():
                     border_color,
                     crop_focus1,
                     crop_focus2,
+                    bool(config.get('preserve_exif')),
                 )
                 with progress_lock:
                     progress_data["processed"] += 1
