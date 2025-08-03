@@ -15,7 +15,7 @@ from datetime import datetime
 
 def cell_size(final_dims, gap, outer=0, both=True):
     w, h = final_dims
-    landscape = w > h
+    landscape = w >= h
     inner_w = w - 2 * outer
     inner_h = h - 2 * outer
     effective_gap = gap if both else 0
@@ -52,6 +52,17 @@ def test_portrait_no_gap_when_missing_image():
     img = make_img(cell_w, cell_h)
     canvas = create_diptych_canvas(None, img, (50, 100), gap_px=10)
     assert canvas.size == (50, 100)
+
+
+def test_square_treated_as_landscape():
+    cell_w, cell_h = cell_size((100, 100), 10, both=True)
+    img1 = make_img(cell_w, cell_h, 'red')
+    img2 = make_img(cell_w, cell_h, 'blue')
+    canvas = create_diptych_canvas(img1, img2, (100, 100), gap_px=10)
+    # left sample should be red
+    assert canvas.getpixel((cell_w // 2, cell_h // 2)) == (255, 0, 0)
+    # right sample should be blue
+    assert canvas.getpixel((100 - cell_w // 2 - 1, cell_h // 2)) == (0, 0, 255)
 
 
 def test_auto_rotate_landscape_into_portrait_cell(tmp_path):
