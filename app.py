@@ -165,7 +165,7 @@ def upload_images():
         response["invalid"] = invalid_files
     return jsonify(response), (400 if invalid_files and not uploaded_filenames else 200)
 
-@app.route('/thumbnail/<path:filename>')
+@app.route('/thumbnail/<filename>')
 def get_thumbnail(filename):
     """Serves a pre-generated thumbnail image for the image pool."""
     thumb_path = os.path.join(THUMB_CACHE_DIR, secure_filename(filename))
