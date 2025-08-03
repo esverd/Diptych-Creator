@@ -216,6 +216,7 @@ const DiptychApp = (() => {
         if (andSwitch) appState.activeDiptychIndex = appState.diptychs.length - 1;
         renderDiptychTray();
         if (andSwitch) renderActiveDiptychUI();
+        persistDiptychOrder();
     }
 
     function switchActiveDiptych(index) {
@@ -236,6 +237,7 @@ const DiptychApp = (() => {
             renderDiptychTray();
             renderImagePool();
             renderActiveDiptychUI();
+            persistDiptychOrder();
         }
     }
 
@@ -261,6 +263,7 @@ const DiptychApp = (() => {
             renderDiptychTray();
             renderImagePool();
             renderActiveDiptychUI();
+            persistDiptychOrder();
         } catch (err) {
             alert('Auto pairing failed: ' + err.message);
         } finally {
@@ -566,6 +569,7 @@ const DiptychApp = (() => {
                     appState.diptychs = newDiptychs;
                     if (newActive !== -1) appState.activeDiptychIndex = newActive;
                     renderDiptychTray();
+                    persistDiptychOrder();
                 }
             });
         }
@@ -576,6 +580,22 @@ const DiptychApp = (() => {
         if (item) {
             const preview = item.querySelector('.diptych-tray-preview');
             if (preview) updateTrayPreview(preview, appState.diptychs[appState.activeDiptychIndex]);
+        }
+    }
+
+    async function persistDiptychOrder() {
+        try {
+            const order = appState.diptychs.map(d => ({
+                image1: d.image1 ? d.image1.path : null,
+                image2: d.image2 ? d.image2.path : null,
+            }));
+            await fetch('/update_diptych_order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order })
+            });
+        } catch (err) {
+            console.error('Failed to persist diptych order:', err);
         }
     }
 
@@ -767,6 +787,10 @@ const DiptychApp = (() => {
                 const img2 = d.image2 ? { ...d.image2, crop_focus: d.config.crop_focus } : null;
                 return { pair: [img1, img2], config: d.config };
             }),
+            order: appState.diptychs.map(d => ({
+                image1: d.image1 ? d.image1.path : null,
+                image2: d.image2 ? d.image2.path : null,
+            })),
             zip: zipToggle.checked
         };
         try {
