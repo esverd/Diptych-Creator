@@ -11,6 +11,8 @@ const DiptychApp = (() => {
         // Holds the Sortable instance for used images; allows us to destroy
         // the instance before creating a new one when the pool is re-rendered.
         usedSortable: null,
+        // Sortable instance for the diptych tray so pairs can be reordered
+        traySortable: null,
     };
     const PREVIEW_DEBOUNCE_DELAY = 300;
 
@@ -314,6 +316,21 @@ const DiptychApp = (() => {
         }
     }
 
+    // Remove an image path from all diptychs. Used when dragging an image
+    // to a new slot so it acts like a move instead of a copy.
+    function removeImageFromDiptychs(path) {
+        appState.diptychs.forEach((d, i) => {
+            if (d.image1 && d.image1.path === path) {
+                d.image1 = null;
+                if (i === appState.activeDiptychIndex) updateActiveTrayPreview();
+            }
+            if (d.image2 && d.image2.path === path) {
+                d.image2 = null;
+                if (i === appState.activeDiptychIndex) updateActiveTrayPreview();
+            }
+        });
+    }
+
     function handleTrayClick(e) {
         if (e.target.closest('.delete-diptych-btn')) {
             const item = e.target.closest('.diptych-tray-item');
@@ -453,6 +470,28 @@ const DiptychApp = (() => {
         addButton.className = 'add-diptych-btn';
         addButton.innerHTML = `<svg fill="currentColor" height="24" viewBox="0 0 256 256" width="24"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"></path></svg>`;
         diptychTray.appendChild(addButton);
+
+        // Enable drag-and-drop reordering of diptychs
+        if (appState.traySortable) {
+            try { appState.traySortable.destroy(); } catch (err) {}
+            appState.traySortable = null;
+        }
+        const trayItems = diptychTray.querySelectorAll('.diptych-tray-item');
+        if (typeof Sortable !== 'undefined' && trayItems.length > 1) {
+            appState.traySortable = new Sortable(diptychTray, {
+                animation: 150,
+                filter: '.add-diptych-btn',
+                onEnd: () => {
+                    const order = Array.from(diptychTray.querySelectorAll('.diptych-tray-item'))
+                        .map(el => parseInt(el.dataset.index, 10));
+                    const newDiptychs = order.map(i => appState.diptychs[i]);
+                    const newActive = order.indexOf(appState.activeDiptychIndex);
+                    appState.diptychs = newDiptychs;
+                    if (newActive !== -1) appState.activeDiptychIndex = newActive;
+                    renderDiptychTray();
+                }
+            });
+        }
     }
 
     function updateActiveTrayPreview() {
@@ -584,9 +623,12 @@ const DiptychApp = (() => {
                 const slot = zone.dataset.slot;
                 const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
                 if (activeDiptych) {
+                    // Move the image from any existing pair to the new slot
+                    removeImageFromDiptychs(path);
                     const imageKey = `image${slot}`;
                     activeDiptych[imageKey] = { path };
                     renderImagePool();
+                    renderDiptychTray();
                     renderActiveDiptychUI();
                     updateActiveTrayPreview();
                     requestPreviewRefresh();
