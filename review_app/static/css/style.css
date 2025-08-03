@@ -188,6 +188,24 @@
     transition: opacity 0.3s ease-in-out;
 }
 
+#lowres-preview {
+    position: absolute;
+    inset: 0;
+    display: none;
+    z-index: 1;
+}
+#lowres-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+#lowres-preview.landscape {
+    flex-direction: row;
+}
+#lowres-preview.portrait {
+    flex-direction: column;
+}
+
 #preview-image:not(.hidden) {
     opacity: 1;
 }
