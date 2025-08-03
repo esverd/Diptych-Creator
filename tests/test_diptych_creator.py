@@ -12,6 +12,8 @@ if PROJECT_ROOT not in sys.path:
 from diptych_creator import create_diptych_canvas, process_source_image, create_diptych
 from app import app, get_capture_time, UPLOAD_TIMES, UPLOAD_DIR
 from datetime import datetime
+import random
+from unittest.mock import patch
 
 def cell_size(final_dims, gap, outer=0, both=True):
     w, h = final_dims
@@ -26,6 +28,14 @@ def cell_size(final_dims, gap, outer=0, both=True):
 
 def make_img(w=50, h=50, color='white'):
     return Image.new('RGB', (w, h), color)
+
+
+def clear_upload_dir():
+    if os.path.exists(UPLOAD_DIR):
+        for f in os.listdir(UPLOAD_DIR):
+            path = os.path.join(UPLOAD_DIR, f)
+            if os.path.isfile(path):
+                os.remove(path)
 
 def test_landscape_gap_used_when_both_images():
     cell_w, cell_h = cell_size((100, 50), 10, both=True)
@@ -105,6 +115,7 @@ def test_fit_mode_background_color(tmp_path):
 
 
 def test_auto_group_chronological(tmp_path):
+    clear_upload_dir()
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     img1 = os.path.join(UPLOAD_DIR, 'old.jpg')
     img2 = os.path.join(UPLOAD_DIR, 'mid.jpg')
@@ -125,6 +136,63 @@ def test_auto_group_chronological(tmp_path):
         pairs = resp.get_json()['pairs']
 
     assert pairs[0] == ['old.jpg', 'mid.jpg']
+    clear_upload_dir()
+
+
+def test_auto_group_aspect_ratio(tmp_path):
+    clear_upload_dir()
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    img1 = os.path.join(UPLOAD_DIR, 'square1.jpg')
+    img2 = os.path.join(UPLOAD_DIR, 'square2.jpg')
+    img3 = os.path.join(UPLOAD_DIR, 'wide1.jpg')
+    img4 = os.path.join(UPLOAD_DIR, 'wide2.jpg')
+    Image.new('RGB', (100, 100), 'red').save(img1)
+    Image.new('RGB', (110, 100), 'red').save(img2)
+    Image.new('RGB', (200, 100), 'red').save(img3)
+    Image.new('RGB', (210, 100), 'red').save(img4)
+    with app.test_client() as client:
+        resp = client.post('/auto_group', json={'method': 'aspect_ratio'})
+        assert resp.status_code == 200
+        pairs = resp.get_json()['pairs']
+    assert pairs[0] == ['square1.jpg', 'square2.jpg']
+    assert pairs[1] == ['wide1.jpg', 'wide2.jpg']
+    clear_upload_dir()
+
+
+def test_auto_group_dominant_color(tmp_path):
+    clear_upload_dir()
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    r1 = os.path.join(UPLOAD_DIR, 'r1.jpg')
+    r2 = os.path.join(UPLOAD_DIR, 'r2.jpg')
+    b1 = os.path.join(UPLOAD_DIR, 'b1.jpg')
+    b2 = os.path.join(UPLOAD_DIR, 'b2.jpg')
+    Image.new('RGB', (10, 10), 'red').save(r1)
+    Image.new('RGB', (10, 10), 'red').save(r2)
+    Image.new('RGB', (10, 10), 'blue').save(b1)
+    Image.new('RGB', (10, 10), 'blue').save(b2)
+    with app.test_client() as client:
+        resp = client.post('/auto_group', json={'method': 'dominant_color'})
+        assert resp.status_code == 200
+        pairs = resp.get_json()['pairs']
+    pair_sets = [set(p) for p in pairs]
+    assert set(['r1.jpg', 'r2.jpg']) in pair_sets
+    assert set(['b1.jpg', 'b2.jpg']) in pair_sets
+    clear_upload_dir()
+
+
+def test_auto_group_random(tmp_path):
+    clear_upload_dir()
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    names = ['a.jpg', 'b.jpg', 'c.jpg', 'd.jpg']
+    for name in names:
+        Image.new('RGB', (10, 10), 'white').save(os.path.join(UPLOAD_DIR, name))
+    random.seed(0)
+    with app.test_client() as client, patch('app.os.listdir', return_value=names):
+        resp = client.post('/auto_group', json={'method': 'random'})
+        assert resp.status_code == 200
+        pairs = resp.get_json()['pairs']
+    assert pairs == [['c.jpg', 'a.jpg'], ['b.jpg', 'd.jpg']]
+    clear_upload_dir()
 
 
 def test_preserve_exif_metadata(tmp_path):
