@@ -50,6 +50,12 @@
             </div>
         </header>
 
+        <!-- Mobile tab bar shown under the header -->
+        <div id="mobile-tabs" class="md:hidden flex border-b border-[var(--accent-color)]">
+            <button id="tab-images" class="flex-1 py-2 text-sm font-medium text-center border-b-2 border-transparent">Images</button>
+            <button id="tab-settings" class="flex-1 py-2 text-sm font-medium text-center border-b-2 border-transparent">Settings</button>
+        </div>
+
         <main class="flex flex-1 flex-col md:flex-row overflow-y-auto">
             <aside id="left-panel" class="w-full md:w-72 border-b md:border-b-0 md:border-r border-[var(--accent-color)] p-4 space-y-4 hidden md:flex flex-col">
                 <div>
@@ -126,36 +132,39 @@
                             </div>
                             <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="border-size" max="100" min="0" name="border-size" type="range" value="20"/>
                         </div>
-                        <div>
-                            <div class="flex items-center justify-between">
-                                <label class="config-label" for="outer-border-size">Outer Border Size</label>
-                                <p id="outer-border-size-value" class="text-xs text-[var(--text-secondary)]">0 mm</p>
+                        <details id="advanced-options" class="space-y-3">
+                            <summary class="config-heading cursor-pointer select-none">More Options</summary>
+                            <div>
+                                <div class="flex items-center justify-between">
+                                    <label class="config-label" for="outer-border-size">Outer Border Size</label>
+                                    <p id="outer-border-size-value" class="text-xs text-[var(--text-secondary)]">0 mm</p>
+                                </div>
+                                <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="outer-border-size" max="100" min="0" name="outer-border-size" type="range" value="20"/>
                             </div>
-                            <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="outer-border-size" max="100" min="0" name="outer-border-size" type="range" value="20"/>
-                        </div>
-                        <div>
-                            <label class="config-label" for="border-color">Border Color</label>
-                            <input type="color" id="border-color" name="border-color" value="#ffffff" class="form-input-custom" style="width: 3rem; height: 2rem; padding: 0; border-radius: 0.5rem;">
-                        </div>
-                        <!-- Crop focus controls allow users to choose which part of the image
-                             is preserved when cropping.  Horizontal (left, center, right) and
-                             vertical (top, center, bottom) positions map to 0.0, 0.5 and 1.0
-                             respectively. -->
-                        <div>
-                            <label class="config-label" for="crop-focus-h">Crop Focus</label>
-                            <div class="flex gap-2 mt-1">
-                                <select id="crop-focus-h" name="crop-focus-h" aria-label="Horizontal crop focus" class="form-input-custom flex-1">
-                                    <option value="0">Left</option>
-                                    <option value="0.5" selected>Center</option>
-                                    <option value="1">Right</option>
-                                </select>
-                                <select id="crop-focus-v" name="crop-focus-v" aria-label="Vertical crop focus" class="form-input-custom flex-1">
-                                    <option value="0">Top</option>
-                                    <option value="0.5" selected>Center</option>
-                                    <option value="1">Bottom</option>
-                                </select>
+                            <div>
+                                <label class="config-label" for="border-color">Border Color</label>
+                                <input type="color" id="border-color" name="border-color" value="#ffffff" class="form-input-custom" style="width: 3rem; height: 2rem; padding: 0; border-radius: 0.5rem;">
                             </div>
-                        </div>
+                            <!-- Crop focus controls allow users to choose which part of the image
+                                 is preserved when cropping.  Horizontal (left, center, right) and
+                                 vertical (top, center, bottom) positions map to 0.0, 0.5 and 1.0
+                                 respectively. -->
+                            <div>
+                                <label class="config-label" for="crop-focus-h">Crop Focus</label>
+                                <div class="flex gap-2 mt-1">
+                                    <select id="crop-focus-h" name="crop-focus-h" aria-label="Horizontal crop focus" class="form-input-custom flex-1">
+                                        <option value="0">Left</option>
+                                        <option value="0.5" selected>Center</option>
+                                        <option value="1">Right</option>
+                                    </select>
+                                    <select id="crop-focus-v" name="crop-focus-v" aria-label="Vertical crop focus" class="form-input-custom flex-1">
+                                        <option value="0">Top</option>
+                                        <option value="0.5" selected>Center</option>
+                                        <option value="1">Bottom</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </details>
                     </div>
                 </div>
                 <div id="image-1-controls" class="hidden">
