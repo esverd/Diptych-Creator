@@ -470,16 +470,48 @@ const DiptychApp = (() => {
         appState.previewDebounceTimer = setTimeout(refreshWysiwygPreview, PREVIEW_DEBOUNCE_DELAY);
     }
 
+    function showLowResPreview(diptych) {
+        const container = document.getElementById('lowres-preview');
+        const img1 = document.getElementById('lowres-img1');
+        const img2 = document.getElementById('lowres-img2');
+        if (!diptych) return;
+        container.classList.remove('hidden');
+        container.classList.toggle('portrait', diptych.config.orientation === 'portrait');
+        container.classList.toggle('landscape', diptych.config.orientation !== 'portrait');
+        container.style.backgroundColor = diptych.config.border_color;
+        if (diptych.image1) {
+            img1.src = `/thumbnail/${encodeURIComponent(diptych.image1.path)}`;
+            img1.classList.remove('hidden');
+        } else {
+            img1.classList.add('hidden');
+            img1.removeAttribute('src');
+        }
+        if (diptych.image2) {
+            img2.src = `/thumbnail/${encodeURIComponent(diptych.image2.path)}`;
+            img2.classList.remove('hidden');
+        } else {
+            img2.classList.add('hidden');
+            img2.removeAttribute('src');
+        }
+    }
+
+    function hideLowResPreview() {
+        const container = document.getElementById('lowres-preview');
+        container.classList.add('hidden');
+    }
+
     async function refreshWysiwygPreview() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych || (!activeDiptych.image1 && !activeDiptych.image2)) {
             previewImage.classList.add('hidden');
             mainCanvas.classList.remove('preview-loading');
+            hideLowResPreview();
             return;
         }
         // Ensure preview background matches outer border color
         previewImage.style.backgroundColor = activeDiptych.config.border_color;
         mainCanvas.style.backgroundColor = activeDiptych.config.border_color;
+        showLowResPreview(activeDiptych);
         try {
             mainCanvas.classList.add('preview-loading');
             // Create a deep copy of the diptych and attach crop_focus to each image
@@ -499,6 +531,7 @@ const DiptychApp = (() => {
             previewImage.onload = () => {
                 previewImage.classList.remove('hidden');
                 mainCanvas.classList.remove('preview-loading');
+                hideLowResPreview();
                 URL.revokeObjectURL(imageUrl);
             };
             previewImage.src = imageUrl;
@@ -506,6 +539,7 @@ const DiptychApp = (() => {
             console.error('Preview generation failed:', error);
             previewImage.classList.add('hidden');
             mainCanvas.classList.remove('preview-loading');
+            hideLowResPreview();
         }
     }
 

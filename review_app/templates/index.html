@@ -66,6 +66,10 @@
             <div class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-50 relative">
                 <div id="main-canvas" class="w-full max-w-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden relative">
                     <img id="preview-image" class="absolute inset-0 w-full h-full object-cover hidden" alt="Diptych Preview">
+                    <div id="lowres-preview" class="absolute inset-0 flex hidden" aria-hidden="true">
+                        <img id="lowres-img1" class="flex-1 object-cover" alt="Low res image 1">
+                        <img id="lowres-img2" class="flex-1 object-cover" alt="Low res image 2">
+                    </div>
                     <div id="canvas-grid" class="absolute inset-0 grid grid-cols-2 h-full">
                         <div class="drop-zone" data-slot="1"></div>
                         <div class="drop-zone" data-slot="2"></div>
