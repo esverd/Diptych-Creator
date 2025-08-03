@@ -59,44 +59,32 @@ def apply_exif_orientation(img):
     2 - Mirror horizontal
     3 - Rotate 180
     4 - Mirror vertical
-    5 - Mirror horizontal and rotate 270 CW
-    6 - Rotate 270 CW
+    5 - Mirror horizontal and rotate 90 CCW
+    6 - Rotate 270 CW (90 CCW)
     7 - Mirror horizontal and rotate 90 CW
     8 - Rotate 90 CW
 
     If the orientation tag is missing or an unexpected value is encountered,
     the image is returned unchanged.
     """
-    if not ORIENTATION_TAG or not hasattr(img, '_getexif'):
+    if not ORIENTATION_TAG or not hasattr(img, "_getexif"):
         return img
     try:
         exif = img._getexif()
         if exif and ORIENTATION_TAG in exif:
             orientation = exif[ORIENTATION_TAG]
-            # Map of orientation codes to operations.
-            if orientation == 2:
-                # Mirror horizontally
-                img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-            elif orientation == 3:
-                # Rotate 180 degrees
-                img = img.rotate(180, expand=True)
-            elif orientation == 4:
-                # Mirror vertically
-                img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-            elif orientation == 5:
-                # Mirror horizontally and rotate 270° CW (–90°)
-                img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-                img = img.rotate(-90, expand=True)
-            elif orientation == 6:
-                # Rotate 270° CW (–90°)
-                img = img.rotate(-90, expand=True)
-            elif orientation == 7:
-                # Mirror horizontally and rotate 90° CW
-                img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-                img = img.rotate(90, expand=True)
-            elif orientation == 8:
-                # Rotate 90° CW
-                img = img.rotate(90, expand=True)
+            operations = {
+                2: [Image.Transpose.FLIP_LEFT_RIGHT],
+                3: [Image.Transpose.ROTATE_180],
+                4: [Image.Transpose.FLIP_TOP_BOTTOM],
+                5: [Image.Transpose.FLIP_LEFT_RIGHT, Image.Transpose.ROTATE_90],
+                6: [Image.Transpose.ROTATE_270],
+                7: [Image.Transpose.FLIP_LEFT_RIGHT, Image.Transpose.ROTATE_270],
+                8: [Image.Transpose.ROTATE_90],
+            }
+            if orientation in operations:
+                for op in operations[orientation]:
+                    img = img.transpose(op)
     except Exception:
         # If anything goes wrong while reading EXIF, return original
         return img

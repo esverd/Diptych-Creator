@@ -116,3 +116,57 @@ def test_auto_group_chronological(tmp_path):
     assert pairs[0] == ['old.jpg', 'mid.jpg']
 
 
+def _save_oriented(img, orientation, path):
+    """Helper to save an image with a given EXIF orientation."""
+    from diptych_creator import ORIENTATION_TAG
+    exif = Image.Exif()
+    if ORIENTATION_TAG:
+        exif[ORIENTATION_TAG] = orientation
+    img.save(path, format="TIFF", exif=exif)
+
+
+def test_exif_orientation_mirrored(tmp_path):
+    """verify mirrored EXIF orientations are handled correctly"""
+    from diptych_creator import apply_exif_orientation
+
+    # Orientation 2 - horizontal mirror
+    img = Image.new('RGB', (2, 1))
+    img.putpixel((0, 0), (1, 2, 3))
+    img.putpixel((1, 0), (4, 5, 6))
+    path = tmp_path / 'ori2.jpg'
+    _save_oriented(img, 2, path)
+    with Image.open(path) as im:
+        out = apply_exif_orientation(im)
+        assert out.getpixel((0, 0)) == (4, 5, 6)
+
+    # Orientation 4 - vertical mirror
+    img = Image.new('RGB', (1, 2))
+    img.putpixel((0, 0), (10, 20, 30))
+    img.putpixel((0, 1), (40, 50, 60))
+    path = tmp_path / 'ori4.jpg'
+    _save_oriented(img, 4, path)
+    with Image.open(path) as im:
+        out = apply_exif_orientation(im)
+        assert out.getpixel((0, 0)) == (40, 50, 60)
+
+    # Orientation 5 - horizontal mirror then rotate 90 CCW
+    img = Image.new('RGB', (2, 3))
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+    for idx, col in enumerate(colors):
+        img.putpixel((idx % 2, idx // 2), col)
+    expected = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_90)
+    path = tmp_path / 'ori5.jpg'
+    _save_oriented(img, 5, path)
+    with Image.open(path) as im:
+        out = apply_exif_orientation(im)
+        assert list(out.getdata()) == list(expected.getdata())
+
+    # Orientation 7 - horizontal mirror then rotate 90 CW
+    expected = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_270)
+    path = tmp_path / 'ori7.jpg'
+    _save_oriented(img, 7, path)
+    with Image.open(path) as im:
+        out = apply_exif_orientation(im)
+        assert list(out.getdata()) == list(expected.getdata())
+
+
