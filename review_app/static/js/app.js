@@ -82,7 +82,7 @@ const DiptychApp = (() => {
         downloadBtn.addEventListener('click', generateDiptychs);
         autoPairBtn.addEventListener('click', autoPairImages);
         mobileMenuBtn.addEventListener('click', toggleMobilePanels);
-        outputSizeSelect.addEventListener('change', handleConfigChange);
+        outputSizeSelect.addEventListener('change', handleOutputSizeChange);
         orientationBtn.addEventListener('click', toggleOrientation);
         [customWidthInput, customHeightInput].forEach(el => el.addEventListener('input', handleConfigChange));
         outputDpiSelect.addEventListener('change', handleConfigChange);
@@ -267,17 +267,26 @@ const DiptychApp = (() => {
         }
     }
 
+    function handleOutputSizeChange() {
+        const selected = outputSizeSelect.value;
+        const isCustom = selected === 'custom';
+        customDimContainer.classList.toggle('hidden', !isCustom);
+        if (isCustom) {
+            const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
+            if (activeDiptych) {
+                customWidthInput.value = activeDiptych.config.width;
+                customHeightInput.value = activeDiptych.config.height;
+            }
+            customWidthInput.focus();
+        }
+        handleConfigChange();
+    }
+
     function handleConfigChange() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
         const config = activeDiptych.config;
         const selectedSize = outputSizeSelect.value;
-        const isSwitchingToCustom = selectedSize === 'custom' && customDimContainer.classList.contains('hidden');
-        if (isSwitchingToCustom) {
-            customWidthInput.value = config.width;
-            customHeightInput.value = config.height;
-        }
-        customDimContainer.classList.toggle('hidden', selectedSize !== 'custom');
         if (selectedSize === 'custom') {
             config.width = parseFloat(customWidthInput.value) || 10;
             config.height = parseFloat(customHeightInput.value) || 8;
