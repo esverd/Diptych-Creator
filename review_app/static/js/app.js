@@ -632,7 +632,8 @@ const DiptychApp = (() => {
                     return;
                 }
                 const percent = progress.total > 0 ? (progress.processed / progress.total) * 100 : 0;
-                updateLoadingProgress(percent, `Generating... (${progress.processed} of ${progress.total})`);
+                const current = Math.min(progress.processed + 1, progress.total);
+                updateLoadingProgress(percent, `Generating diptych ${current} of ${progress.total}...`);
                 if (progress.processed >= progress.total) {
                     clearInterval(progressInterval);
                     updateLoadingProgress(100, 'Finalizing download...');
