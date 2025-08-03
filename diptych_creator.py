@@ -59,10 +59,10 @@ def apply_exif_orientation(img):
     2 - Mirror horizontal
     3 - Rotate 180
     4 - Mirror vertical
-    5 - Mirror horizontal and rotate 270 CW
-    6 - Rotate 270 CW
-    7 - Mirror horizontal and rotate 90 CW
-    8 - Rotate 90 CW
+    5 - Mirror horizontal and rotate 90° counter-clockwise
+    6 - Rotate 90° clockwise
+    7 - Mirror horizontal and rotate 90° clockwise
+    8 - Rotate 90° counter-clockwise
 
     If the orientation tag is missing or an unexpected value is encountered,
     the image is returned unchanged.
@@ -84,18 +84,18 @@ def apply_exif_orientation(img):
                 # Mirror vertically
                 img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
             elif orientation == 5:
-                # Mirror horizontally and rotate 270° CW (–90°)
+                # Mirror horizontally and rotate 90° CCW
                 img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-                img = img.rotate(-90, expand=True)
+                img = img.rotate(90, expand=True)
             elif orientation == 6:
-                # Rotate 270° CW (–90°)
+                # Rotate 90° CW
                 img = img.rotate(-90, expand=True)
             elif orientation == 7:
                 # Mirror horizontally and rotate 90° CW
                 img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-                img = img.rotate(90, expand=True)
+                img = img.rotate(-90, expand=True)
             elif orientation == 8:
-                # Rotate 90° CW
+                # Rotate 90° CCW
                 img = img.rotate(90, expand=True)
     except Exception:
         # If anything goes wrong while reading EXIF, return original
