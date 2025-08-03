@@ -342,10 +342,20 @@
 
 /* --- Mobile Responsiveness --- */
 @media (max-width: 768px) {
+    #bottom-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 30;
+    }
+    main {
+        padding-bottom: 5rem;
+    }
     #left-panel, #right-panel {
         position: fixed;
-        top: 60px;
-        bottom: 0;
+        top: 100px;
+        bottom: 5rem;
         z-index: 40;
         background: white;
         overflow-y: auto;
@@ -363,4 +373,16 @@
     #right-panel:not(.hidden) {
         transform: translateX(0);
     }
+    #mobile-tabs button.mobile-tab-active {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+}
+
+details > summary {
+    cursor: pointer;
+    list-style: none;
+}
+details > summary::-webkit-details-marker {
+    display: none;
 }

@@ -55,6 +55,8 @@ const DiptychApp = (() => {
     const outerBorderSizeSlider = document.getElementById('outer-border-size');
     const outerBorderSizeValue = document.getElementById('outer-border-size-value');
     const borderColorInput = document.getElementById('border-color');
+    const tabImagesBtn = document.getElementById('tab-images');
+    const tabSettingsBtn = document.getElementById('tab-settings');
     // Crop focus selectors (horizontal and vertical) allow the user to
     // choose which part of the image is preserved when cropping.  Values
     // correspond to 0 (start), 0.5 (center) and 1 (end).
@@ -95,6 +97,10 @@ const DiptychApp = (() => {
         diptychTray.addEventListener('click', handleTrayClick);
         document.getElementById('scroll-left-btn').addEventListener('click', () => scrollTray(-200));
         document.getElementById('scroll-right-btn').addEventListener('click', () => scrollTray(200));
+        if (tabImagesBtn && tabSettingsBtn) {
+            tabImagesBtn.addEventListener('click', () => toggleMobileTab('images'));
+            tabSettingsBtn.addEventListener('click', () => toggleMobileTab('settings'));
+        }
     }
 
     // --- UI & STATE ---
@@ -132,6 +138,23 @@ const DiptychApp = (() => {
         } else {
             leftPanel.classList.add('hidden');
             rightPanel.classList.add('hidden');
+        }
+        updateMobileMenuIcon();
+    }
+
+    function toggleMobileTab(which) {
+        if (which === 'images') {
+            const currentlyVisible = !leftPanel.classList.contains('hidden');
+            leftPanel.classList.toggle('hidden', currentlyVisible);
+            rightPanel.classList.add('hidden');
+            tabImagesBtn.classList.toggle('mobile-tab-active', !currentlyVisible);
+            tabSettingsBtn.classList.remove('mobile-tab-active');
+        } else if (which === 'settings') {
+            const currentlyVisible = !rightPanel.classList.contains('hidden');
+            rightPanel.classList.toggle('hidden', currentlyVisible);
+            leftPanel.classList.add('hidden');
+            tabSettingsBtn.classList.toggle('mobile-tab-active', !currentlyVisible);
+            tabImagesBtn.classList.remove('mobile-tab-active');
         }
         updateMobileMenuIcon();
     }
