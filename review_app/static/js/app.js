@@ -71,6 +71,7 @@ const DiptychApp = (() => {
     function init() {
         addEventListeners();
         addNewDiptych();
+        loadSavedSettings();
         initializeDragAndDrop();
         updateMobileMenuIcon();
     }
@@ -267,6 +268,46 @@ const DiptychApp = (() => {
         }
     }
 
+    function saveSettings() {
+        try {
+            const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
+            if (!activeDiptych) return;
+            const settings = {
+                outputSize: outputSizeSelect.value,
+                customWidth: customWidthInput.value,
+                customHeight: customHeightInput.value,
+                orientation: activeDiptych.config.orientation,
+                border: parseInt(borderSizeSlider.value, 10),
+                outerBorder: parseInt(outerBorderSizeSlider.value, 10),
+                dpi: outputDpiSelect.value
+            };
+            localStorage.setItem('diptychSettings', JSON.stringify(settings));
+        } catch (err) {
+            console.warn('Failed to save settings', err);
+        }
+    }
+
+    function loadSavedSettings() {
+        try {
+            const raw = localStorage.getItem('diptychSettings');
+            if (!raw) return;
+            const settings = JSON.parse(raw);
+            if (settings.outputSize) outputSizeSelect.value = settings.outputSize;
+            if (settings.customWidth) customWidthInput.value = settings.customWidth;
+            if (settings.customHeight) customHeightInput.value = settings.customHeight;
+            if (settings.dpi) outputDpiSelect.value = settings.dpi;
+            if (settings.border !== undefined) borderSizeSlider.value = settings.border;
+            if (settings.outerBorder !== undefined) outerBorderSizeSlider.value = settings.outerBorder;
+            const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
+            if (activeDiptych && settings.orientation) {
+                activeDiptych.config.orientation = settings.orientation;
+            }
+            handleConfigChange();
+        } catch (err) {
+            console.warn('Failed to load settings', err);
+        }
+    }
+
     function handleConfigChange() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
@@ -306,6 +347,7 @@ const DiptychApp = (() => {
         renderActiveDiptychUI();
         updateActiveTrayPreview();
         requestPreviewRefresh();
+        saveSettings();
     }
 
     function toggleOrientation() {
@@ -315,6 +357,7 @@ const DiptychApp = (() => {
         renderActiveDiptychUI();
         updateActiveTrayPreview();
         requestPreviewRefresh();
+        saveSettings();
     }
 
     function handleRotate(e) {
