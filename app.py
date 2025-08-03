@@ -46,6 +46,9 @@ os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
 # --- Progress Tracking ---
 progress_data = {"processed": 0, "total": 0}
 progress_lock = threading.Lock()
+# Track the client-defined order of diptychs
+diptych_order: list[int] = []
+diptych_order_lock = threading.Lock()
 # Track upload time for each file so auto grouping can fall back to the
 # actual upload moment rather than relying on the filesystem timestamp.
 UPLOAD_TIMES = {}
@@ -173,6 +176,22 @@ def get_thumbnail(filename):
         return send_file(thumb_path)
     else:
         return "Thumbnail not ready", 404
+
+@app.route('/set_diptych_order', methods=['POST'])
+def set_diptych_order():
+    """Persist the current diptych order sent by the client."""
+    data = request.get_json(silent=True) or {}
+    order = data.get('order')
+    if not isinstance(order, list):
+        return jsonify({"error": "Invalid order"}), 400
+    with diptych_order_lock:
+        diptych_order.clear()
+        try:
+            diptych_order.extend(int(i) for i in order)
+        except Exception:
+            diptych_order.clear()
+            return jsonify({"error": "Invalid order"}), 400
+    return jsonify({"status": "ok"})
 
 @app.route('/auto_group', methods=['POST'])
 def auto_group():
@@ -318,7 +337,21 @@ def generate_diptychs():
     global progress_data
     data = request.get_json() or {}
     diptych_jobs = data.get('pairs', [])
+    order = data.get('order')
     should_zip = bool(data.get('zip', True))
+    # Apply custom order if provided or previously stored
+    if isinstance(order, list):
+        try:
+            order = [int(i) for i in order]
+            diptych_jobs = [diptych_jobs[i] for i in order if i < len(diptych_jobs)]
+            with diptych_order_lock:
+                diptych_order[:] = order
+        except Exception:
+            pass
+    else:
+        with diptych_order_lock:
+            if diptych_order and len(diptych_order) == len(diptych_jobs):
+                diptych_jobs = [diptych_jobs[i] for i in diptych_order if i < len(diptych_jobs)]
     # Prepare output directory with timestamp
     output_dir = os.path.join(OUTPUT_DIR_BASE, f"DiptychMaster_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     os.makedirs(output_dir, exist_ok=True)

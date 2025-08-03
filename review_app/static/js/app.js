@@ -453,6 +453,21 @@ const DiptychApp = (() => {
         addButton.className = 'add-diptych-btn';
         addButton.innerHTML = `<svg fill="currentColor" height="24" viewBox="0 0 256 256" width="24"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"></path></svg>`;
         diptychTray.appendChild(addButton);
+        sendDiptychOrder();
+    }
+
+    async function sendDiptychOrder() {
+        const order = Array.from(diptychTray.querySelectorAll('.diptych-tray-item'))
+            .map(el => parseInt(el.dataset.index, 10));
+        try {
+            await fetch('/set_diptych_order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order })
+            });
+        } catch (err) {
+            console.error('Failed to persist diptych order', err);
+        }
     }
 
     function updateActiveTrayPreview() {
@@ -612,7 +627,10 @@ const DiptychApp = (() => {
                 const img2 = d.image2 ? { ...d.image2, crop_focus: d.config.crop_focus } : null;
                 return { pair: [img1, img2], config: d.config };
             }),
-            zip: zipToggle.checked
+            zip: zipToggle.checked,
+            order: appState.diptychs
+                .map((d, idx) => d.image1 && d.image2 ? idx : null)
+                .filter(idx => idx !== null)
         };
         try {
             const startResponse = await fetch('/generate_diptychs', {
