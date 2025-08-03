@@ -246,6 +246,7 @@ def create_diptych(
     border_color: str = 'white',
     crop_focus1: tuple | None = None,
     crop_focus2: tuple | None = None,
+    preserve_exif: bool = False,
 ) -> None:
     """
     Process two source images and save the resulting diptych with the correct
@@ -272,6 +273,9 @@ def create_diptych(
         Colour of the outer border and background for fit mode.
     crop_focus1, crop_focus2 : tuple(float, float) or None, optional
         Relative focal points for cropping the first and second images.
+    preserve_exif : bool, optional
+        When True, embed the EXIF metadata from the first image in the
+        generated diptych. Orientation is normalised to 1.
     """
     # Determine processing dimensions for each half based on final canvas size
     _, processing_dims, _, _ = calculate_diptych_dimensions(
@@ -306,6 +310,19 @@ def create_diptych(
         print("Skipping diptych due to image processing error.")
         return
     canvas = create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px, border_color)
-    # Save with the specified DPI
-    canvas.save(output_path, 'jpeg', quality=95, dpi=(dpi, dpi))
+    # Save with the specified DPI and optional EXIF from the first image
+    exif_bytes = None
+    if preserve_exif:
+        try:
+            with Image.open(image_data1['path']) as src:
+                exif = src.getexif()
+                if ORIENTATION_TAG and ORIENTATION_TAG in exif:
+                    exif[ORIENTATION_TAG] = 1
+                exif_bytes = exif.tobytes()
+        except Exception:
+            exif_bytes = None
+    save_kwargs = {'quality': 95, 'dpi': (dpi, dpi)}
+    if exif_bytes:
+        save_kwargs['exif'] = exif_bytes
+    canvas.save(output_path, 'jpeg', **save_kwargs)
     print(f"Successfully created diptych: {os.path.basename(output_path)}")
