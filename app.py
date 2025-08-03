@@ -12,6 +12,7 @@ import shutil
 from werkzeug.utils import secure_filename
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image, ExifTags
+import uuid
 
 # Configure Flask to look in the `review_app` folder for templates and static assets.
 app = Flask(__name__, template_folder='review_app/templates', static_folder='review_app/static')
@@ -46,6 +47,9 @@ os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
 # --- Progress Tracking ---
 progress_data = {"processed": 0, "total": 0}
 progress_lock = threading.Lock()
+# Store outstanding preview jobs keyed by an ID
+preview_jobs: dict[str, dict] = {}
+preview_lock = threading.Lock()
 # Track upload time for each file so auto grouping can fall back to the
 # actual upload moment rather than relying on the filesystem timestamp.
 UPLOAD_TIMES = {}
@@ -115,6 +119,70 @@ def get_capture_time(full_path):
         if base in UPLOAD_TIMES:
             return UPLOAD_TIMES[base]
     return datetime.fromtimestamp(os.path.getmtime(full_path))
+
+# Background task to generate a preview image
+def _generate_preview_job(job_id: str, diptych_data: dict) -> None:
+    """Worker function executed on the thread pool to create a preview."""
+    try:
+        config = diptych_data.get('config', {})
+        image1_data = diptych_data.get('image1')
+        image2_data = diptych_data.get('image2')
+        if not image1_data and not image2_data:
+            raise ValueError('No images to preview')
+
+        preview_dpi = min(int(config.get('dpi', 72)), 150)
+        final_dims, processing_dims, outer_border_px, effective_gap = diptych_creator.calculate_diptych_dimensions(config, preview_dpi)
+        border_color = config.get('border_color', 'white')
+        inner_w = final_dims[0] - 2 * outer_border_px
+        inner_h = final_dims[1] - 2 * outer_border_px
+        effective_gap = config.get('gap', 0)
+        if config.get('orientation') == 'portrait':
+            processing_dims = (inner_w, inner_h - effective_gap)
+        else:
+            processing_dims = (inner_w - effective_gap, inner_h)
+
+        img1 = img2 = None
+        if image1_data:
+            path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image1_data['path'])))
+            if not os.path.exists(path1):
+                raise FileNotFoundError(image1_data['path'])
+            crop_focus1 = image1_data.get('crop_focus')
+            img1 = diptych_creator.process_source_image(
+                path1,
+                processing_dims,
+                image1_data.get('rotation', 0),
+                config.get('fit_mode', 'fill'),
+                True,
+                border_color,
+                crop_focus1,
+            )
+        if image2_data:
+            path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image2_data['path'])))
+            if not os.path.exists(path2):
+                raise FileNotFoundError(image2_data['path'])
+            crop_focus2 = image2_data.get('crop_focus')
+            img2 = diptych_creator.process_source_image(
+                path2,
+                processing_dims,
+                image2_data.get('rotation', 0),
+                config.get('fit_mode', 'fill'),
+                True,
+                border_color,
+                crop_focus2,
+            )
+        if not img1 and not img2:
+            raise RuntimeError('Error processing images')
+        canvas = diptych_creator.create_diptych_canvas(img1, img2, final_dims, effective_gap, outer_border_px, border_color)
+        buf = io.BytesIO()
+        canvas.save(buf, format='JPEG', quality=90)
+        buf.seek(0)
+        with preview_lock:
+            preview_jobs[job_id]['status'] = 'done'
+            preview_jobs[job_id]['data'] = buf.read()
+    except Exception as e:  # pragma: no cover - hard to trigger in tests
+        with preview_lock:
+            preview_jobs[job_id]['status'] = 'error'
+            preview_jobs[job_id]['error'] = str(e)
 
 # --- Flask Routes ---
 @app.route('/')
@@ -230,6 +298,40 @@ def auto_group():
                 pair.append(info[i + 1]['name'])
             pairs.append(pair)
     return jsonify({'pairs': pairs, 'method': method})
+
+# --- Asynchronous Preview API ---
+@app.route('/request_preview', methods=['POST'])
+def request_preview():
+    """Start preview generation in the background and return a job id."""
+    data = request.get_json() or {}
+    diptych = data.get('diptych')
+    if not diptych:
+        return "Invalid preview request", 400
+    job_id = uuid.uuid4().hex
+    with preview_lock:
+        preview_jobs[job_id] = {'status': 'pending', 'data': None, 'error': None}
+    executor.submit(_generate_preview_job, job_id, diptych)
+    return jsonify({'job_id': job_id})
+
+@app.route('/preview_status/<job_id>')
+def preview_status(job_id):
+    """Return the status of an asynchronous preview job."""
+    with preview_lock:
+        job = preview_jobs.get(job_id)
+    if not job:
+        return "Invalid job id", 404
+    return jsonify({'status': job['status'], 'error': job['error']})
+
+@app.route('/preview_result/<job_id>')
+def preview_result(job_id):
+    """Return the final preview JPEG when ready."""
+    with preview_lock:
+        job = preview_jobs.get(job_id)
+    if not job:
+        return "Invalid job id", 404
+    if job['status'] != 'done':
+        return "Preview not ready", 202
+    return send_file(io.BytesIO(job['data']), mimetype='image/jpeg')
 
 # --- WYSIWYG PREVIEW ENDPOINT ---
 @app.route('/get_wysiwyg_preview', methods=['POST'])
