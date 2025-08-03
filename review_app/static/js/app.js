@@ -18,6 +18,35 @@ const DiptychApp = (() => {
         return Math.round((px / dpi) * 25.4);
     }
 
+    // --- PERSISTENCE ---
+    const SETTINGS_KEY = 'diptychSettings';
+
+    function saveSettings(config) {
+        try {
+            const data = {
+                width: config.width,
+                height: config.height,
+                orientation: config.orientation,
+                gap: config.gap,
+                outer_border: config.outer_border,
+                dpi: config.dpi
+            };
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(data));
+        } catch (e) {
+            console.error('Failed to save settings', e);
+        }
+    }
+
+    function loadSettings() {
+        try {
+            const raw = localStorage.getItem(SETTINGS_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            console.error('Failed to load settings', e);
+            return null;
+        }
+    }
+
     // --- ELEMENT SELECTORS ---
     const fileUploader = document.getElementById('file-uploader');
     const welcomeScreen = document.getElementById('welcome-screen');
@@ -180,6 +209,9 @@ const DiptychApp = (() => {
         let baseConfig = { fit_mode: 'fit', gap: 20, width: 6, height: 4, orientation: 'landscape', dpi: 300, outer_border: 20, border_color: '#ffffff', crop_focus: [0.5, 0.5] };
         if (appState.diptychs.length > 0) {
             baseConfig = { ...appState.diptychs[appState.activeDiptychIndex].config };
+        } else {
+            const saved = loadSettings();
+            if (saved) baseConfig = { ...baseConfig, ...saved };
         }
         const newDiptych = {
             image1: null,
@@ -281,6 +313,7 @@ const DiptychApp = (() => {
         renderActiveDiptychUI();
         updateActiveTrayPreview();
         requestPreviewRefresh();
+        saveSettings(config);
     }
 
     function toggleOrientation() {
@@ -289,6 +322,7 @@ const DiptychApp = (() => {
         activeDiptych.config.orientation = activeDiptych.config.orientation === 'landscape' ? 'portrait' : 'landscape';
         renderActiveDiptychUI();
         updateActiveTrayPreview();
+        saveSettings(activeDiptych.config);
     }
 
     function handleRotate(e) {
