@@ -12,6 +12,8 @@ import shutil
 from werkzeug.utils import secure_filename
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image, ExifTags
+import colorsys
+import random
 
 # Configure Flask to look in the `review_app` folder for templates and static assets.
 app = Flask(__name__, template_folder='review_app/templates', static_folder='review_app/static')
@@ -183,25 +185,42 @@ def auto_group():
     Supported methods are:
 
     - ``chronological`` (default): sort images by capture time and pair sequentially.
-    - ``orientation``: group images by whether they are landscape or portrait.
-      Landscape images will be paired with other landscape images first, then
-      portrait images will be paired together.  If there is an odd number in
-      either group, the leftover image will form a single-image diptych.
+    - ``orientation``: group by landscape/portrait orientation.
+    - ``aspect_ratio``: sort by aspect ratio (width / height) and pair similar images.
+    - ``dominant_color``: sort images by dominant hue and pair sequentially.
+    - ``random``: shuffle the images before pairing.
+
+    Orientation grouping pairs landscape images first, then portraits. If there is
+    an odd number in either group, the leftover image will form a single-image
+    diptych.
     """
     data = request.get_json(silent=True) or {}
     method = (data.get('method') or 'chronological').lower()
+    seed = data.get('seed')
     # Gather file metadata
     files = [f for f in os.listdir(UPLOAD_DIR) if os.path.isfile(os.path.join(UPLOAD_DIR, f))]
     info: list[dict] = []
     for f in files:
         path = os.path.join(UPLOAD_DIR, f)
-        # Determine orientation: landscape (True) or portrait (False)
         try:
             with Image.open(path) as img:
                 landscape = img.width >= img.height
+                aspect = img.width / img.height if img.height else 1.0
+                r, g, b = img.resize((1, 1)).convert("RGB").getpixel((0, 0))
+                hue = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)[0]
         except Exception:
             landscape = True
-        info.append({'name': f, 'time': get_capture_time(path), 'landscape': landscape})
+            aspect = 1.0
+            r = g = b = 0
+            hue = 0.0
+        info.append({
+            'name': f,
+            'time': get_capture_time(path),
+            'landscape': landscape,
+            'aspect': aspect,
+            'color': (r, g, b),
+            'hue': hue,
+        })
     pairs: list[list[str]] = []
     if method == 'orientation':
         # Split into landscape and portrait lists
@@ -221,8 +240,33 @@ def auto_group():
             return res
         pairs.extend(pair_items(landscapes))
         pairs.extend(pair_items(portraits))
+    elif method == 'aspect_ratio':
+        info.sort(key=lambda x: x['aspect'])
+        for i in range(0, len(info), 2):
+            pair = [info[i]['name']]
+            if i + 1 < len(info):
+                pair.append(info[i + 1]['name'])
+            pairs.append(pair)
+    elif method == 'dominant_color':
+        info.sort(key=lambda x: x['hue'])
+        for i in range(0, len(info), 2):
+            pair = [info[i]['name']]
+            if i + 1 < len(info):
+                pair.append(info[i + 1]['name'])
+            pairs.append(pair)
+    elif method == 'random':
+        if seed is not None:
+            try:
+                random.seed(int(seed))
+            except Exception:
+                pass
+        random.shuffle(info)
+        for i in range(0, len(info), 2):
+            pair = [info[i]['name']]
+            if i + 1 < len(info):
+                pair.append(info[i + 1]['name'])
+            pairs.append(pair)
     else:
-        # Chronological by default
         info.sort(key=lambda x: x['time'])
         for i in range(0, len(info), 2):
             pair = [info[i]['name']]

@@ -220,7 +220,9 @@ const DiptychApp = (() => {
             const baseConfig = appState.diptychs.length > 0
                 ? { ...appState.diptychs[appState.activeDiptychIndex].config }
                 : { fit_mode: 'fit', gap: 20, width: 6, height: 4, orientation: 'landscape', dpi: 300, outer_border: 20, border_color: '#ffffff' };
-            // Determine grouping method from the selector.  Defaults to chronological.
+            // Determine grouping method from the selector.  Supported options
+            // mirror the server: chronological, orientation, aspect_ratio,
+            // dominant_color and random. Defaults to chronological.
             const method = groupingMethodSelect ? groupingMethodSelect.value : 'chronological';
             const response = await fetch('/auto_group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method }) });
             if (!response.ok) throw new Error('Auto grouping failed');

@@ -1,5 +1,7 @@
 import os
 import sys
+import shutil
+import random
 import pytest
 from PIL import Image
 
@@ -94,6 +96,7 @@ def test_fit_mode_background_color(tmp_path):
 
 
 def test_auto_group_chronological(tmp_path):
+    shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     img1 = os.path.join(UPLOAD_DIR, 'old.jpg')
     img2 = os.path.join(UPLOAD_DIR, 'mid.jpg')
@@ -114,5 +117,77 @@ def test_auto_group_chronological(tmp_path):
         pairs = resp.get_json()['pairs']
 
     assert pairs[0] == ['old.jpg', 'mid.jpg']
+
+
+def test_auto_group_aspect_ratio(tmp_path):
+    shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    wide1 = os.path.join(UPLOAD_DIR, 'wide1.jpg')
+    wide2 = os.path.join(UPLOAD_DIR, 'wide2.jpg')
+    tall1 = os.path.join(UPLOAD_DIR, 'tall1.jpg')
+    tall2 = os.path.join(UPLOAD_DIR, 'tall2.jpg')
+    Image.new('RGB', (100, 50), 'red').save(wide1)
+    Image.new('RGB', (100, 50), 'green').save(wide2)
+    Image.new('RGB', (50, 100), 'blue').save(tall1)
+    Image.new('RGB', (50, 100), 'yellow').save(tall2)
+
+    with app.test_client() as client:
+        resp = client.post('/auto_group', json={'method': 'aspect_ratio'})
+        assert resp.status_code == 200
+        pairs = resp.get_json()['pairs']
+
+    assert pairs[0] == ['tall1.jpg', 'tall2.jpg']
+    assert pairs[1] == ['wide1.jpg', 'wide2.jpg']
+
+
+def test_auto_group_dominant_color(tmp_path):
+    shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    red = os.path.join(UPLOAD_DIR, 'red.jpg')
+    yellow = os.path.join(UPLOAD_DIR, 'yellow.jpg')
+    green = os.path.join(UPLOAD_DIR, 'green.jpg')
+    blue = os.path.join(UPLOAD_DIR, 'blue.jpg')
+    Image.new('RGB', (10, 10), 'red').save(red)
+    Image.new('RGB', (10, 10), 'yellow').save(yellow)
+    Image.new('RGB', (10, 10), 'green').save(green)
+    Image.new('RGB', (10, 10), 'blue').save(blue)
+
+    with app.test_client() as client:
+        resp = client.post('/auto_group', json={'method': 'dominant_color'})
+        assert resp.status_code == 200
+        pairs = resp.get_json()['pairs']
+
+    assert pairs[0] == ['red.jpg', 'yellow.jpg']
+    assert pairs[1] == ['green.jpg', 'blue.jpg']
+
+
+def test_auto_group_random(tmp_path):
+    shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    a = os.path.join(UPLOAD_DIR, 'a.jpg')
+    b = os.path.join(UPLOAD_DIR, 'b.jpg')
+    c = os.path.join(UPLOAD_DIR, 'c.jpg')
+    d = os.path.join(UPLOAD_DIR, 'd.jpg')
+    Image.new('RGB', (10, 10), 'black').save(a)
+    Image.new('RGB', (10, 10), 'black').save(b)
+    Image.new('RGB', (10, 10), 'black').save(c)
+    Image.new('RGB', (10, 10), 'black').save(d)
+
+    with app.test_client() as client:
+        resp = client.post('/auto_group', json={'method': 'random', 'seed': 0})
+        assert resp.status_code == 200
+        pairs = resp.get_json()['pairs']
+
+    expected = [f for f in os.listdir(UPLOAD_DIR) if os.path.isfile(os.path.join(UPLOAD_DIR, f))]
+    random.seed(0)
+    random.shuffle(expected)
+    expected_pairs = []
+    for i in range(0, len(expected), 2):
+        pair = [expected[i]]
+        if i + 1 < len(expected):
+            pair.append(expected[i + 1])
+        expected_pairs.append(pair)
+
+    assert pairs == expected_pairs
 
 
