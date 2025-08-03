@@ -142,6 +142,7 @@ def _generate_preview_job(job_id: str, diptych_data: dict) -> None:
             processing_dims = (inner_w - effective_gap, inner_h)
 
         img1 = img2 = None
+        is_landscape = config.get('orientation') != 'portrait'
         if image1_data:
             path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image1_data['path'])))
             if not os.path.exists(path1):
@@ -155,6 +156,7 @@ def _generate_preview_job(job_id: str, diptych_data: dict) -> None:
                 True,
                 border_color,
                 crop_focus1,
+                is_landscape,
             )
         if image2_data:
             path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image2_data['path'])))
@@ -169,6 +171,7 @@ def _generate_preview_job(job_id: str, diptych_data: dict) -> None:
                 True,
                 border_color,
                 crop_focus2,
+                is_landscape,
             )
         if not img1 and not img2:
             raise RuntimeError('Error processing images')
@@ -365,6 +368,7 @@ def get_wysiwyg_preview():
         # provided by the client to control which part of the image is kept
         # during cropping.  If absent, center cropping is used.
         img1, img2 = None, None
+        is_landscape = config.get('orientation') != 'portrait'
         if image1_data:
             path1 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image1_data['path'])))
             if not os.path.exists(path1):
@@ -378,6 +382,7 @@ def get_wysiwyg_preview():
                 True,
                 config.get('border_color', 'white'),
                 crop_focus1,
+                is_landscape,
             )
         if image2_data:
             path2 = os.path.join(UPLOAD_DIR, secure_filename(os.path.basename(image2_data['path'])))
@@ -392,6 +397,7 @@ def get_wysiwyg_preview():
                 True,
                 config.get('border_color', 'white'),
                 crop_focus2,
+                is_landscape,
             )
         if not img1 and not img2:
             return "Error processing images", 500

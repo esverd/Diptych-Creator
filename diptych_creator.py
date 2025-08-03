@@ -110,6 +110,7 @@ def process_source_image(
     auto_rotate: bool = True,
     background_color: str = 'white',
     crop_focus: tuple | None = None,
+    is_landscape_diptych: bool | None = None,
 ) -> Image.Image | None:
     """
     Load an image from disk, apply EXIF orientation and manual rotation, then
@@ -149,8 +150,13 @@ def process_source_image(
             if rotation_override:
                 img = img.rotate(rotation_override, expand=True)
             diptych_w, diptych_h = target_diptych_dims
+            # Determine orientation, allowing the caller to override the
+            # automatic inference.  This is useful for square layouts where
+            # subtracting the gap can make the width appear smaller than the
+            # height even when the diptych should be treated as landscape.
+            if is_landscape_diptych is None:
+                is_landscape_diptych = diptych_w >= diptych_h
             # Determine the size of one half of the diptych
-            is_landscape_diptych = diptych_w > diptych_h
             half_w = diptych_w // 2 if is_landscape_diptych else diptych_w
             half_h = diptych_h if is_landscape_diptych else diptych_h // 2
             # Auto rotate to match cell orientation
@@ -200,7 +206,7 @@ def create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px=0, bor
     their respective halves, respecting orientation and outer borders.
     """
     final_width, final_height = final_dims
-    is_landscape_diptych = final_width > final_height
+    is_landscape_diptych = final_width >= final_height
     # Use gap only when both images are present
     effective_gap = gap_px if img1 and img2 else 0
     # Compute the size of each cell inside the fixed final dimensions
@@ -278,13 +284,14 @@ def create_diptych(
         generated diptych. Orientation is normalised to 1.
     """
     # Determine processing dimensions for each half based on final canvas size
+    is_landscape = final_dims[0] >= final_dims[1]
     _, processing_dims, _, _ = calculate_diptych_dimensions(
         {
             'width': final_dims[0] / dpi,
             'height': final_dims[1] / dpi,
             'gap': gap_px,
             'outer_border': outer_border_px,
-            'orientation': 'landscape' if final_dims[0] > final_dims[1] else 'portrait',
+            'orientation': 'landscape' if is_landscape else 'portrait',
         },
         dpi,
     )
@@ -296,6 +303,7 @@ def create_diptych(
         True,
         border_color,
         crop_focus1,
+        is_landscape,
     )
     img2 = process_source_image(
         image_data2['path'],
@@ -305,6 +313,7 @@ def create_diptych(
         True,
         border_color,
         crop_focus2,
+        is_landscape,
     )
     if not img1 or not img2:
         print("Skipping diptych due to image processing error.")
