@@ -95,6 +95,8 @@ def test_fit_mode_background_color(tmp_path):
 
 def test_auto_group_chronological(tmp_path):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
+    for f in os.listdir(UPLOAD_DIR):
+        os.remove(os.path.join(UPLOAD_DIR, f))
     img1 = os.path.join(UPLOAD_DIR, 'old.jpg')
     img2 = os.path.join(UPLOAD_DIR, 'mid.jpg')
     img3 = os.path.join(UPLOAD_DIR, 'new.jpg')
@@ -114,6 +116,32 @@ def test_auto_group_chronological(tmp_path):
         pairs = resp.get_json()['pairs']
 
     assert pairs[0] == ['old.jpg', 'mid.jpg']
+
+
+def test_auto_group_orientation(tmp_path):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    for f in os.listdir(UPLOAD_DIR):
+        os.remove(os.path.join(UPLOAD_DIR, f))
+    land1 = os.path.join(UPLOAD_DIR, 'land1.jpg')
+    land2 = os.path.join(UPLOAD_DIR, 'land2.jpg')
+    port1 = os.path.join(UPLOAD_DIR, 'port1.jpg')
+    Image.new('RGB', (20, 10), 'red').save(land1)
+    Image.new('RGB', (20, 10), 'green').save(land2)
+    Image.new('RGB', (10, 20), 'blue').save(port1)
+    t1 = datetime(2020, 1, 1).timestamp()
+    t2 = datetime(2020, 1, 2).timestamp()
+    t3 = datetime(2020, 1, 3).timestamp()
+    os.utime(land1, (t1, t1))
+    os.utime(land2, (t2, t2))
+    os.utime(port1, (t3, t3))
+
+    with app.test_client() as client:
+        resp = client.post('/auto_group', json={'method': 'orientation'})
+        assert resp.status_code == 200
+        data = resp.get_json()
+
+    assert data['pairs'] == [['land1.jpg', 'land2.jpg'], ['port1.jpg']]
+    assert data['method'] == 'orientation'
 
 
 def test_preserve_exif_metadata(tmp_path):
