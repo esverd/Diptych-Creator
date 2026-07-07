@@ -10,7 +10,10 @@ for both WYSIWYG previews and final generation.
 """
 
 from PIL import Image, ExifTags
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 # Attempt to find the EXIF orientation tag. Some images store orientation
 # information which needs to be applied so the images appear upright.
@@ -23,7 +26,7 @@ def calculate_pixel_dimensions(width_in, height_in, dpi):
     """Convert physical inches and DPI into pixel dimensions."""
     return (int(width_in * dpi), int(height_in * dpi))
 
-def calculate_diptych_dimensions(config, dpi):
+def calculate_diptych_dimensions(config, dpi, both_images=True):
     """
     Return the final canvas dimensions in pixels, processing dimensions for each
     image, and the border and gap sizes in pixels based on a configuration.
@@ -37,13 +40,47 @@ def calculate_diptych_dimensions(config, dpi):
     final_dims = calculate_pixel_dimensions(width, height, dpi)
     outer_border_px = int(config.get('outer_border', 0))
     gap_px = int(config.get('gap', 0))
+    effective_gap = gap_px if both_images else 0
     inner_w = final_dims[0] - 2 * outer_border_px
     inner_h = final_dims[1] - 2 * outer_border_px
+    if inner_w <= 0 or inner_h <= 0:
+        raise ValueError('Outer border is too large for the selected output size')
     if orientation == 'portrait':
-        processing_dims = (inner_w, inner_h - gap_px)
+        if inner_h - effective_gap <= 0:
+            raise ValueError('Image spacing is too large for the selected output size')
+        processing_dims = (inner_w, inner_h - effective_gap)
     else:
-        processing_dims = (inner_w - gap_px, inner_h)
+        if inner_w - effective_gap <= 0:
+            raise ValueError('Image spacing is too large for the selected output size')
+        processing_dims = (inner_w - effective_gap, inner_h)
     return final_dims, processing_dims, outer_border_px, gap_px
+
+def calculate_processing_dimensions_from_final(final_dims, gap_px, outer_border_px=0, both_images=True):
+    """Return combined processing dimensions from an already-final canvas size."""
+    final_width, final_height = final_dims
+    effective_gap = gap_px if both_images else 0
+    inner_w = final_width - 2 * outer_border_px
+    inner_h = final_height - 2 * outer_border_px
+    if inner_w <= 0 or inner_h <= 0:
+        raise ValueError('Outer border is too large for the selected output size')
+    if final_width >= final_height:
+        if inner_w - effective_gap <= 0:
+            raise ValueError('Image spacing is too large for the selected output size')
+        return (inner_w - effective_gap, inner_h)
+    if inner_h - effective_gap <= 0:
+        raise ValueError('Image spacing is too large for the selected output size')
+    return (inner_w, inner_h - effective_gap)
+
+def _flatten_to_rgb(img, background_color='white'):
+    """Return an RGB image, compositing alpha against the configured background."""
+    if img.mode == 'RGB':
+        return img
+    if img.mode in ('RGBA', 'LA') or ('transparency' in img.info):
+        rgba = img.convert('RGBA')
+        background = Image.new('RGBA', rgba.size, background_color)
+        background.alpha_composite(rgba)
+        return background.convert('RGB')
+    return img.convert('RGB')
 
 def apply_exif_orientation(img):
     """
@@ -148,7 +185,8 @@ def process_source_image(
         with Image.open(image_path) as img:
             img = apply_exif_orientation(img)
             if rotation_override:
-                img = img.rotate(rotation_override, expand=True)
+                # UI rotations are expressed as clockwise degrees.
+                img = img.rotate(-rotation_override, expand=True)
             diptych_w, diptych_h = target_diptych_dims
             # Determine orientation, allowing the caller to override the
             # automatic inference.  This is useful for square layouts where
@@ -159,6 +197,10 @@ def process_source_image(
             # Determine the size of one half of the diptych
             half_w = diptych_w // 2 if is_landscape_diptych else diptych_w
             half_h = diptych_h if is_landscape_diptych else diptych_h // 2
+            if half_w <= 0 or half_h <= 0:
+                raise ValueError('Target image cell must be at least 1 pixel in each dimension')
+            if fit_mode not in {'fill', 'fit'}:
+                raise ValueError(f'Unsupported fit mode: {fit_mode}')
             # Auto rotate to match cell orientation
             if auto_rotate and half_w != half_h:
                 cell_landscape = half_w > half_h
@@ -186,17 +228,24 @@ def process_source_image(
                     max_offset = img.height - new_height
                     offset = int(max_offset * focus_y)
                     img = img.crop((0, offset, img.width, offset + new_height))
-                return img.resize((half_w, half_h), Image.Resampling.LANCZOS)
+                return _flatten_to_rgb(
+                    img.resize((half_w, half_h), Image.Resampling.LANCZOS),
+                    background_color,
+                )
             else:
                 # Fit mode: scale to fit within the cell and pad with background color
                 img.thumbnail((half_w, half_h), Image.Resampling.LANCZOS)
                 background = Image.new('RGB', (half_w, half_h), background_color)
                 paste_x = (half_w - img.width) // 2
                 paste_y = (half_h - img.height) // 2
-                background.paste(img, (paste_x, paste_y))
+                if img.mode in ('RGBA', 'LA') or ('transparency' in img.info):
+                    rgba = img.convert('RGBA')
+                    background.paste(rgba.convert('RGB'), (paste_x, paste_y), rgba.getchannel('A'))
+                else:
+                    background.paste(img.convert('RGB'), (paste_x, paste_y))
                 return background
-    except Exception as e:
-        print(f"Error processing {image_path}: {e}")
+    except Exception:
+        logger.exception("Error processing %s", image_path)
         return None
 
 def create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px=0, border_color='white'):
@@ -241,8 +290,8 @@ def create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px=0, bor
     return canvas
 
 def create_diptych(
-    image_data1: dict,
-    image_data2: dict,
+    image_data1: dict | None,
+    image_data2: dict | None,
     output_path: str,
     final_dims: tuple[int, int],
     gap_px: int,
@@ -253,14 +302,14 @@ def create_diptych(
     crop_focus1: tuple | None = None,
     crop_focus2: tuple | None = None,
     preserve_exif: bool = False,
-) -> None:
+) -> str:
     """
-    Process two source images and save the resulting diptych with the correct
+    Process one or two source images and save the resulting diptych with the correct
     DPI and optional outer border.
 
     Parameters
     ----------
-    image_data1, image_data2 : dict
+    image_data1, image_data2 : dict or None
         Each dictionary should contain at least a 'path' key and may contain
         'rotation' indicating clockwise rotation in degrees.
     output_path : str
@@ -283,47 +332,53 @@ def create_diptych(
         When True, embed the EXIF metadata from the first image in the
         generated diptych. Orientation is normalised to 1.
     """
-    # Determine processing dimensions for each half based on final canvas size
+    if not image_data1 and not image_data2:
+        raise ValueError('At least one image is required to create a diptych')
+
+    # Determine processing dimensions for each half based on final canvas size.
     is_landscape = final_dims[0] >= final_dims[1]
-    _, processing_dims, _, _ = calculate_diptych_dimensions(
-        {
-            'width': final_dims[0] / dpi,
-            'height': final_dims[1] / dpi,
-            'gap': gap_px,
-            'outer_border': outer_border_px,
-            'orientation': 'landscape' if is_landscape else 'portrait',
-        },
-        dpi,
+    processing_dims = calculate_processing_dimensions_from_final(
+        final_dims,
+        gap_px,
+        outer_border_px,
+        both_images=bool(image_data1 and image_data2),
     )
-    img1 = process_source_image(
-        image_data1['path'],
-        processing_dims,
-        image_data1.get('rotation', 0),
-        fit_mode,
-        True,
-        border_color,
-        crop_focus1,
-        is_landscape,
-    )
-    img2 = process_source_image(
-        image_data2['path'],
-        processing_dims,
-        image_data2.get('rotation', 0),
-        fit_mode,
-        True,
-        border_color,
-        crop_focus2,
-        is_landscape,
-    )
-    if not img1 or not img2:
-        print("Skipping diptych due to image processing error.")
-        return
+
+    img1 = img2 = None
+    if image_data1:
+        img1 = process_source_image(
+            image_data1['path'],
+            processing_dims,
+            image_data1.get('rotation', 0),
+            fit_mode,
+            True,
+            border_color,
+            crop_focus1,
+            is_landscape,
+        )
+        if img1 is None:
+            raise RuntimeError(f"Error processing image: {os.path.basename(image_data1['path'])}")
+    if image_data2:
+        img2 = process_source_image(
+            image_data2['path'],
+            processing_dims,
+            image_data2.get('rotation', 0),
+            fit_mode,
+            True,
+            border_color,
+            crop_focus2,
+            is_landscape,
+        )
+        if img2 is None:
+            raise RuntimeError(f"Error processing image: {os.path.basename(image_data2['path'])}")
+
     canvas = create_diptych_canvas(img1, img2, final_dims, gap_px, outer_border_px, border_color)
-    # Save with the specified DPI and optional EXIF from the first image
+    # Save with the specified DPI and optional EXIF from the first available image.
     exif_bytes = None
     if preserve_exif:
         try:
-            with Image.open(image_data1['path']) as src:
+            exif_source = image_data1 or image_data2
+            with Image.open(exif_source['path']) as src:
                 exif = src.getexif()
                 if ORIENTATION_TAG and ORIENTATION_TAG in exif:
                     exif[ORIENTATION_TAG] = 1
@@ -334,4 +389,5 @@ def create_diptych(
     if exif_bytes:
         save_kwargs['exif'] = exif_bytes
     canvas.save(output_path, 'jpeg', **save_kwargs)
-    print(f"Successfully created diptych: {os.path.basename(output_path)}")
+    logger.info("Successfully created diptych: %s", os.path.basename(output_path))
+    return output_path

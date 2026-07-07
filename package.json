@@ -1,0 +1,9 @@
+{
+  "name": "diptych-creator",
+  "private": true,
+  "scripts": {
+    "test": "npm run test:js && npm run test:py",
+    "test:js": "node --check review_app/static/js/app.js",
+    "test:py": "python -m pytest -q"
+  }
+}

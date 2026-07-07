@@ -7,6 +7,7 @@ const DiptychApp = (() => {
         diptychs: [],
         activeDiptychIndex: 0,
         previewDebounceTimer: null,
+        previewRequestSeq: 0,
         isGenerating: false,
         // Holds the Sortable instance for used images; allows us to destroy
         // the instance before creating a new one when the pool is re-rendered.
@@ -16,8 +17,8 @@ const DiptychApp = (() => {
     };
     const PREVIEW_DEBOUNCE_DELAY = 300;
 
-    function pxToMm(px, dpi) {
-        return Math.round((px / dpi) * 25.4);
+    function formatPixels(px) {
+        return `${parseInt(px, 10) || 0} px`;
     }
 
     // --- ELEMENT SELECTORS ---
@@ -64,6 +65,9 @@ const DiptychApp = (() => {
     // correspond to 0 (start), 0.5 (center) and 1 (end).
     const cropFocusHSelect = document.getElementById('crop-focus-h');
     const cropFocusVSelect = document.getElementById('crop-focus-v');
+    const statusBanner = document.getElementById('status-banner');
+    const statusMessage = document.getElementById('status-message');
+    const statusCloseBtn = document.getElementById('status-close');
     const hamburgerIcon = `<svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="18" y2="18"></line></svg>`;
     const closeIcon = `<svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><line x1="18" x2="6" y1="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>`;
 
@@ -103,6 +107,9 @@ const DiptychApp = (() => {
         if (tabImagesBtn && tabSettingsBtn) {
             tabImagesBtn.addEventListener('click', () => toggleMobileTab('images'));
             tabSettingsBtn.addEventListener('click', () => toggleMobileTab('settings'));
+        }
+        if (statusCloseBtn) {
+            statusCloseBtn.addEventListener('click', () => hideStatus());
         }
     }
 
@@ -170,8 +177,10 @@ const DiptychApp = (() => {
         Array.from(files).forEach(file => formData.append('files[]', file));
         try {
             const response = await fetch('/upload_images', { method: 'POST', body: formData });
-            if (!response.ok) throw new Error('Upload failed');
-            const result = await response.json();
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok && !(result.uploaded || []).length) {
+                throw new Error(result.error || 'Upload failed');
+            }
             let uploadedNames;
             let invalidNames = [];
             // The server returns an object with either a list of uploaded names
@@ -183,7 +192,7 @@ const DiptychApp = (() => {
                 invalidNames = result.invalid || [];
             }
             if (invalidNames.length) {
-                alert(`Some files were not uploaded (unsupported type):\n${invalidNames.join(', ')}`);
+                showStatus(`Some files were not uploaded: ${invalidNames.join(', ')}`, 'warning');
             }
             const newImages = uploadedNames.map(name => ({ path: name }));
             newImages.forEach(newImg => {
@@ -195,7 +204,7 @@ const DiptychApp = (() => {
             showAppContainer();
         } catch (error) {
             console.error('Upload failed:', error);
-            alert(`Upload failed: ${error.message}`);
+            showStatus(`Upload failed: ${error.message}`, 'error');
         } finally {
             hideLoading();
             event.target.value = null;
@@ -224,6 +233,7 @@ const DiptychApp = (() => {
             appState.activeDiptychIndex = index;
             renderDiptychTray();
             renderActiveDiptychUI();
+            requestPreviewRefresh();
         }
     }
 
@@ -237,6 +247,7 @@ const DiptychApp = (() => {
             renderDiptychTray();
             renderImagePool();
             renderActiveDiptychUI();
+            requestPreviewRefresh();
             persistDiptychOrder();
         }
     }
@@ -263,9 +274,10 @@ const DiptychApp = (() => {
             renderDiptychTray();
             renderImagePool();
             renderActiveDiptychUI();
+            requestPreviewRefresh();
             persistDiptychOrder();
         } catch (err) {
-            alert('Auto pairing failed: ' + err.message);
+            showStatus(`Auto pairing failed: ${err.message}`, 'error');
         } finally {
             hideLoading();
         }
@@ -285,6 +297,7 @@ const DiptychApp = (() => {
             customWidthInput.focus();
         }
         handleConfigChange();
+    }
 
     function saveSettings() {
         try {
@@ -297,7 +310,10 @@ const DiptychApp = (() => {
                 orientation: activeDiptych.config.orientation,
                 border: parseInt(borderSizeSlider.value, 10),
                 outerBorder: parseInt(outerBorderSizeSlider.value, 10),
-                dpi: outputDpiSelect.value
+                dpi: outputDpiSelect.value,
+                fitMode: imageFittingSelect.value,
+                borderColor: borderColorInput.value,
+                cropFocus: activeDiptych.config.crop_focus,
             };
             localStorage.setItem('diptychSettings', JSON.stringify(settings));
         } catch (err) {
@@ -316,9 +332,14 @@ const DiptychApp = (() => {
             if (settings.dpi) outputDpiSelect.value = settings.dpi;
             if (settings.border !== undefined) borderSizeSlider.value = settings.border;
             if (settings.outerBorder !== undefined) outerBorderSizeSlider.value = settings.outerBorder;
+            if (settings.fitMode) imageFittingSelect.value = settings.fitMode;
+            if (settings.borderColor) borderColorInput.value = settings.borderColor;
             const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
             if (activeDiptych && settings.orientation) {
                 activeDiptych.config.orientation = settings.orientation;
+            }
+            if (activeDiptych && Array.isArray(settings.cropFocus)) {
+                activeDiptych.config.crop_focus = settings.cropFocus;
             }
             handleConfigChange();
         } catch (err) {
@@ -341,9 +362,9 @@ const DiptychApp = (() => {
         config.dpi = parseInt(outputDpiSelect.value, 10);
         config.fit_mode = imageFittingSelect.value;
         config.gap = parseInt(borderSizeSlider.value, 10);
-        borderSizeValue.textContent = `${pxToMm(config.gap, config.dpi)} mm`;
+        borderSizeValue.textContent = formatPixels(config.gap);
         config.outer_border = parseInt(outerBorderSizeSlider.value, 10);
-        outerBorderSizeValue.textContent = `${pxToMm(config.outer_border, config.dpi)} mm`;
+        outerBorderSizeValue.textContent = formatPixels(config.outer_border);
         config.border_color = borderColorInput.value;
         // Update crop focus from selectors if present
         if (cropFocusHSelect && cropFocusVSelect) {
@@ -393,6 +414,7 @@ const DiptychApp = (() => {
             renderImagePool();
             renderActiveDiptychUI();
             updateActiveTrayPreview();
+            requestPreviewRefresh();
         }
     }
 
@@ -502,9 +524,9 @@ const DiptychApp = (() => {
         outputDpiSelect.value = config.dpi;
         imageFittingSelect.value = config.fit_mode;
         borderSizeSlider.value = config.gap;
-        borderSizeValue.textContent = `${pxToMm(config.gap, config.dpi)} mm`;
+        borderSizeValue.textContent = formatPixels(config.gap);
         outerBorderSizeSlider.value = config.outer_border;
-        outerBorderSizeValue.textContent = `${pxToMm(config.outer_border, config.dpi)} mm`;
+        outerBorderSizeValue.textContent = formatPixels(config.outer_border);
         borderColorInput.value = config.border_color;
         // Sync crop focus selectors with the configuration
         if (cropFocusHSelect && cropFocusVSelect && Array.isArray(config.crop_focus)) {
@@ -524,7 +546,6 @@ const DiptychApp = (() => {
         orientationBtn.classList.toggle('cursor-not-allowed', isSquare);
         document.getElementById('image-1-controls').classList.toggle('hidden', !activeDiptych.image1);
         document.getElementById('image-2-controls').classList.toggle('hidden', !activeDiptych.image2);
-        requestPreviewRefresh();
     }
 
     function renderDiptychTray() {
@@ -636,6 +657,7 @@ const DiptychApp = (() => {
     }
 
     async function refreshWysiwygPreview() {
+        const requestSeq = ++appState.previewRequestSeq;
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych || (!activeDiptych.image1 && !activeDiptych.image2)) {
             previewImage.classList.add('hidden');
@@ -663,7 +685,15 @@ const DiptychApp = (() => {
             }
             const blob = await response.blob();
             const imageUrl = URL.createObjectURL(blob);
+            if (requestSeq !== appState.previewRequestSeq) {
+                URL.revokeObjectURL(imageUrl);
+                return;
+            }
             previewImage.onload = () => {
+                if (requestSeq !== appState.previewRequestSeq) {
+                    URL.revokeObjectURL(imageUrl);
+                    return;
+                }
                 previewImage.classList.remove('hidden');
                 mainCanvas.classList.remove('preview-loading');
                 hideLowResPreview();
@@ -671,6 +701,7 @@ const DiptychApp = (() => {
             };
             previewImage.src = imageUrl;
         } catch (error) {
+            if (requestSeq !== appState.previewRequestSeq) return;
             console.error('Preview generation failed:', error);
             previewImage.classList.add('hidden');
             mainCanvas.classList.remove('preview-loading');
@@ -680,6 +711,7 @@ const DiptychApp = (() => {
 
     async function updateTrayPreview(element, diptych) {
         if (!element || !diptych || (!diptych.image1 && !diptych.image2)) {
+            revokeTrayPreviewUrl(element);
             if(element) element.style.backgroundImage = 'none';
             return;
         }
@@ -697,13 +729,25 @@ const DiptychApp = (() => {
             });
             if (response.ok) {
                 const imageBlob = await response.blob();
-                element.style.backgroundImage = `url(${URL.createObjectURL(imageBlob)})`;
+                revokeTrayPreviewUrl(element);
+                const objectUrl = URL.createObjectURL(imageBlob);
+                element.dataset.objectUrl = objectUrl;
+                element.style.backgroundImage = `url(${objectUrl})`;
             } else {
+                revokeTrayPreviewUrl(element);
                 element.style.backgroundImage = 'none';
             }
         } catch (error) {
             console.error("Tray preview failed:", error);
+            revokeTrayPreviewUrl(element);
             element.style.backgroundImage = 'none';
+        }
+    }
+
+    function revokeTrayPreviewUrl(element) {
+        if (element?.dataset?.objectUrl) {
+            URL.revokeObjectURL(element.dataset.objectUrl);
+            delete element.dataset.objectUrl;
         }
     }
 
@@ -773,9 +817,9 @@ const DiptychApp = (() => {
     // --- FINAL GENERATION ---
     async function generateDiptychs() {
         if (appState.isGenerating) return;
-        const pairsToGenerate = appState.diptychs.filter(d => d.image1 && d.image2);
+        const pairsToGenerate = appState.diptychs.filter(d => d.image1 || d.image2);
         if (pairsToGenerate.length === 0) {
-            alert("Please create at least one complete diptych pair before downloading.");
+            showStatus("Add at least one image before downloading.", 'warning');
             return;
         }
         appState.isGenerating = true;
@@ -799,14 +843,16 @@ const DiptychApp = (() => {
                 body: JSON.stringify(payload)
             });
             if (!startResponse.ok) throw new Error('Failed to start generation on server.');
+            const startResult = await startResponse.json();
+            const jobId = startResult.job_id;
             const progressInterval = setInterval(async () => {
-                const progressResponse = await fetch('/get_generation_progress');
+                const progressResponse = await fetch(`/get_generation_progress?job_id=${encodeURIComponent(jobId)}`);
                 const progress = await progressResponse.json();
                 // Check for server-side errors
                 if (progress.error) {
                     clearInterval(progressInterval);
                     hideLoading();
-                    alert(`Generation failed: ${progress.error}`);
+                    showStatus(`Generation failed: ${progress.error}`, 'error');
                     appState.isGenerating = false;
                     return;
                 }
@@ -816,11 +862,25 @@ const DiptychApp = (() => {
                 if (progress.processed >= progress.total) {
                     clearInterval(progressInterval);
                     updateLoadingProgress(100, 'Finalizing download...');
-                    const finalResponse = await fetch('/finalize_download');
+                    const finalResponse = await fetch(`/finalize_download?job_id=${encodeURIComponent(jobId)}`);
                     const finalResult = await finalResponse.json();
                     hideLoading();
-                    if (finalResult.download_path) {
+                    if (finalResult.error) {
+                        showStatus(`Download failed: ${finalResult.error}`, 'error');
+                    } else if (finalResult.download_id) {
+                        window.location.href = `/download_file?id=${encodeURIComponent(finalResult.download_id)}`;
+                    } else if (finalResult.download_path) {
                         window.location.href = `/download_file?path=${encodeURIComponent(finalResult.download_path)}`;
+                    } else if (finalResult.download_ids) {
+                        finalResult.download_ids.forEach((id, index) => {
+                            setTimeout(() => {
+                                const a = document.createElement('a');
+                                a.href = `/download_file?id=${encodeURIComponent(id)}`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                            }, 300 * index);
+                        });
                     } else if (finalResult.download_paths) {
                         finalResult.download_paths.forEach((path, index) => {
                             setTimeout(() => {
@@ -838,7 +898,7 @@ const DiptychApp = (() => {
             }, 1000);
         } catch (error) {
             hideLoading();
-            alert(`An error occurred: ${error.message}`);
+            showStatus(`An error occurred: ${error.message}`, 'error');
             appState.isGenerating = false;
         }
     }
@@ -860,6 +920,17 @@ const DiptychApp = (() => {
     }
     function hideLoading() {
         loadingOverlay.classList.add('hidden');
+    }
+
+    function showStatus(message, type = 'info') {
+        if (!statusBanner || !statusMessage) return;
+        statusMessage.textContent = message;
+        statusBanner.classList.remove('hidden', 'status-error', 'status-warning', 'status-info');
+        statusBanner.classList.add(`status-${type}`);
+    }
+
+    function hideStatus() {
+        if (statusBanner) statusBanner.classList.add('hidden');
     }
 
     return { init };

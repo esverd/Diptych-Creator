@@ -4,6 +4,8 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV FLASK_HOST=0.0.0.0
+ENV FLASK_PORT=5000
 
 # Set work directory
 WORKDIR /app
@@ -24,5 +26,5 @@ COPY . .
 # Expose the Flask port
 EXPOSE 5000
 
-# Default command: run the app using start.py (which launches app.py)
-CMD ["python", "start.py"]
+# Default command: run the Flask app directly inside the container
+CMD ["python", "app.py"]

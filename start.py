@@ -22,12 +22,15 @@ def start_app():
     if os.name == 'nt':
         startup_info = subprocess.STARTUPINFO()
         startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    env = os.environ.copy()
+    env.setdefault("FLASK_HOST", "127.0.0.1")
+    env.setdefault("FLASK_PORT", "5000")
     # Start the Flask server as a background process
-    server_process = subprocess.Popen(command, startupinfo=startup_info)
+    server_process = subprocess.Popen(command, startupinfo=startup_info, env=env)
     print("✅ Server is running. Opening application in your browser...")
     # Give the server a moment to start up before opening the browser
     time.sleep(2)
-    webbrowser.open("http://127.0.0.1:5000")
+    webbrowser.open(f"http://127.0.0.1:{env['FLASK_PORT']}")
     try:
         # Keep this script alive until the server process is terminated
         server_process.wait()
