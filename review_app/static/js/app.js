@@ -7,6 +7,8 @@ const DiptychApp = (() => {
         selectedImagePath: null,
         measurementUnit: 'in',
         framing: null,
+        libraryQuery: '',
+        libraryFilter: 'all',
         diptychs: [],
         activeDiptychIndex: 0,
         previewDebounceTimer: null,
@@ -101,6 +103,7 @@ const DiptychApp = (() => {
         const canvasSizer = new ResizeObserver(fitCanvasToWorkspace);
         canvasSizer.observe(document.getElementById('preview-panel'));
         canvasSizer.observe(document.querySelector('.workspace-heading'));
+        canvasSizer.observe(document.getElementById('selection-bar'));
     }
 
     // --- EVENT LISTENERS ---
@@ -116,11 +119,29 @@ const DiptychApp = (() => {
                 restoreEdit(key === 'y' || event.shiftKey ? 'redo' : 'undo');
             }
         });
+        document.getElementById('library-search').addEventListener('input', event => {
+            appState.libraryQuery = event.target.value; renderImagePool();
+        });
+        document.getElementById('library-clear').addEventListener('click', () => {
+            appState.libraryQuery = ''; document.getElementById('library-search').value = ''; renderImagePool(); document.getElementById('library-search').focus();
+        });
+        document.querySelectorAll('.library-filters button').forEach(button => button.addEventListener('click', () => {
+            appState.libraryFilter = button.dataset.filter; renderImagePool();
+        }));
+        document.getElementById('cancel-selection').addEventListener('click', clearSelection);
+        [1, 2].forEach(slot => document.getElementById(`place-slot-${slot}`).addEventListener('click', () => placeImage(appState.selectedImagePath, slot)));
+        document.getElementById('swap-photos-btn').addEventListener('click', () => {
+            const pair = appState.diptychs[appState.activeDiptychIndex];
+            if (!pair.image1 || !pair.image2) return;
+            const before = snapshot();
+            [pair.image1, pair.image2] = [pair.image2, pair.image1];
+            clearSelection(); renderDiptychTray(); requestPreviewRefresh(); persistDiptychOrder(); recordEdit(before, 'Swap photos');
+        });
         fileUploader.addEventListener('change', handleFileUpload);
         downloadBtn.addEventListener('click', generateDiptychs);
         autoPairBtn.addEventListener('click', autoPairImages);
         document.getElementById('tab-preview').addEventListener('click', () => toggleMobileTab('preview'));
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMobileTab('preview'); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !framingDialog.open) { clearSelection(); toggleMobileTab('preview'); } });
         document.querySelectorAll('.drop-zone').forEach(zone => zone.addEventListener('click', () => {
             const placed = appState.diptychs[appState.activeDiptychIndex]?.[`image${zone.dataset.slot}`];
             if (placed && !appState.selectedImagePath) openFraming(zone.dataset.slot);
@@ -183,7 +204,8 @@ const DiptychApp = (() => {
         if (window.innerWidth < 900 || !panel.clientHeight) return;
         const style = getComputedStyle(panel);
         let height = panel.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-        for (const element of [panel.querySelector('.workspace-heading'), panel.querySelector('p.mt-4')]) {
+        for (const element of [panel.querySelector('.workspace-heading'), panel.querySelector('p.mt-4'), document.getElementById('selection-bar')]) {
+            if (element.hidden) continue;
             const childStyle = getComputedStyle(element);
             height -= element.getBoundingClientRect().height + (parseFloat(childStyle.marginTop) || 0) + (parseFloat(childStyle.marginBottom) || 0);
         }
@@ -199,6 +221,23 @@ const DiptychApp = (() => {
             button.classList.toggle('mobile-tab-active', view === which);
             button.setAttribute('aria-pressed', String(view === which));
         });
+    }
+
+    function clearSelection() {
+        const path = appState.selectedImagePath;
+        appState.selectedImagePath = null;
+        renderImagePool(); renderActiveDiptychUI(true);
+        if (path) document.querySelector(`.img-thumbnail[data-path="${CSS.escape(path)}"]`)?.focus();
+    }
+
+    function renderSelection() {
+        const bar = document.getElementById('selection-bar');
+        const path = appState.selectedImagePath;
+        bar.hidden = !path;
+        document.getElementById('selection-name').textContent = path ? `Selected: ${path}` : '';
+        const pair = appState.diptychs[appState.activeDiptychIndex];
+        [1, 2].forEach(slot => document.getElementById(`place-slot-${slot}`).textContent = `${pair?.[`image${slot}`] ? 'Replace' : 'Place in'} slot ${slot}`);
+        fitCanvasToWorkspace();
     }
 
     function placeImage(path, slot) {
@@ -220,6 +259,7 @@ const DiptychApp = (() => {
         renderActiveDiptychUI();
         requestPreviewRefresh();
         toggleMobileTab('preview');
+        document.querySelector(`.drop-zone[data-slot="${slot}"]`).focus();
         recordEdit(before, 'Place photo');
         persistDiptychOrder();
     }
@@ -535,10 +575,21 @@ const DiptychApp = (() => {
         imagePool.innerHTML = '';
         usedImagePool.innerHTML = '';
         const usedPaths = appState.diptychs.flatMap(d => [d.image1?.path, d.image2?.path]).filter(Boolean);
-        const unusedImages = appState.images.filter(img => !usedPaths.includes(img.path));
-        const usedImages = appState.images.filter(img => usedPaths.includes(img.path));
-        unpairedCount.textContent = unusedImages.length;
-        usedCount.textContent = usedImages.length;
+        const query = appState.libraryQuery.trim().toLocaleLowerCase();
+        const matches = image => image.path.toLocaleLowerCase().includes(query);
+        const allUnused = appState.images.filter(img => !usedPaths.includes(img.path));
+        const allUsed = appState.images.filter(img => usedPaths.includes(img.path));
+        const unusedImages = allUnused.filter(matches);
+        const usedImages = allUsed.filter(matches);
+        unpairedCount.textContent = allUnused.length;
+        usedCount.textContent = allUsed.length;
+        const showUnused = appState.libraryFilter !== 'placed';
+        const showUsed = appState.libraryFilter !== 'available';
+        document.getElementById('available-images-section').hidden = !showUnused;
+        document.getElementById('library-clear').hidden = !query;
+        document.querySelectorAll('.library-filters button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === appState.libraryFilter)));
+        const shown = (showUnused ? unusedImages.length : 0) + (showUsed ? usedImages.length : 0);
+        document.getElementById('library-results').textContent = query ? `${shown} matching photo${shown === 1 ? '' : 's'}` : `${appState.images.length} photos · ${allUnused.length} available`;
         function createThumb(imgData) {
             const thumbContainer = document.createElement('button');
             thumbContainer.type = 'button';
@@ -547,10 +598,11 @@ const DiptychApp = (() => {
             thumbContainer.setAttribute('aria-pressed', String(appState.selectedImagePath === imgData.path));
             thumbContainer.title = imgData.path;
             thumbContainer.addEventListener('click', () => {
-                appState.selectedImagePath = imgData.path;
+                appState.selectedImagePath = appState.selectedImagePath === imgData.path ? null : imgData.path;
                 renderImagePool();
                 renderActiveDiptychUI(true);
-                document.getElementById('placement-hint').textContent = `Selected ${imgData.path}. Choose slot 1 or 2 to place it.`;
+                document.querySelector(`.img-thumbnail[data-path="${CSS.escape(imgData.path)}"]`)?.focus();
+                if (appState.selectedImagePath) document.getElementById('placement-hint').textContent = 'Choose a slot above, click the preview, or cancel to return to framing.';
                 toggleMobileTab('preview');
             });
             thumbContainer.className = 'img-thumbnail thumbnail-loading';
@@ -564,24 +616,34 @@ const DiptychApp = (() => {
             imgEl.alt = baseName;
             imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}`;
             imgEl.onload = () => { imgEl.classList.add('loaded'); thumbContainer.classList.remove('thumbnail-loading'); };
-            imgEl.onerror = () => setTimeout(() => { imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}?t=${Date.now()}` }, 1000);
+            imgEl.onerror = () => { thumbContainer.classList.remove('thumbnail-loading'); thumbContainer.classList.add('thumbnail-error'); imgEl.alt = `Preview unavailable: ${baseName}`; };
             const filenameDiv = document.createElement('div');
             filenameDiv.className = 'filename';
             filenameDiv.textContent = imgData.path;
             thumbContainer.append(imgEl, filenameDiv);
-            return thumbContainer;
+            const card = document.createElement('div'); card.className = 'library-card'; card.append(thumbContainer);
+            const pairIndex = appState.diptychs.findIndex(pair => [pair.image1?.path, pair.image2?.path].includes(imgData.path));
+            if (pairIndex !== -1) {
+                const slot = appState.diptychs[pairIndex].image1?.path === imgData.path ? 1 : 2;
+                const location = document.createElement('button'); location.type = 'button'; location.className = 'photo-location';
+                location.textContent = `Pair ${pairIndex + 1} · Photo ${slot}`; location.setAttribute('aria-label', `Go to pair ${pairIndex + 1} containing ${imgData.path}`);
+                location.addEventListener('click', () => { appState.selectedImagePath = null; switchActiveDiptych(pairIndex); renderImagePool(); document.querySelector(`.drop-zone[data-slot="${slot}"]`).focus(); }); card.append(location);
+            }
+            return card;
         }
         unusedImages.forEach(imgData => imagePool.appendChild(createThumb(imgData)));
         usedImages.forEach(imgData => usedImagePool.appendChild(createThumb(imgData)));
-        if (!unusedImages.length) imagePool.innerHTML = '<p class="pool-empty">All images are placed. Upload more or select a placed image to move it.</p>';
-        document.getElementById('used-images-section').classList.toggle('hidden', !usedImages.length);
+        if (!unusedImages.length) imagePool.innerHTML = `<p class="pool-empty">${query ? 'No available photos match. Clear the search or try another filename.' : 'All photos are placed. Browse Placed to find or move a photo.'}</p>`;
+        if (!usedImages.length) usedImagePool.innerHTML = `<p class="pool-empty">${query ? 'No placed photos match. Clear the search or try another filename.' : 'Placed photos will appear here with their pair location.'}</p>`;
+        document.getElementById('used-images-section').hidden = !showUsed;
+        document.getElementById('used-images-section').classList.remove('hidden');
         // Enable drag-and-drop reordering on the used image pool.  Destroy any previous
         // Sortable instance to avoid duplicates.
         if (appState.usedSortable) {
             try { appState.usedSortable.destroy(); } catch (err) {}
             appState.usedSortable = null;
         }
-        if (typeof Sortable !== 'undefined' && usedImages.length > 1) {
+        if (typeof Sortable !== 'undefined' && usedImages.length > 1 && !query) {
             appState.usedSortable = new Sortable(usedImagePool, {
                 animation: 150,
                 onEnd: () => {
@@ -611,6 +673,8 @@ const DiptychApp = (() => {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych) return;
         const { config } = activeDiptych;
+        renderSelection();
+        document.getElementById('swap-photos-btn').disabled = !(activeDiptych.image1 && activeDiptych.image2);
         document.getElementById('pair-heading').textContent = `Pair ${appState.activeDiptychIndex + 1} of ${appState.diptychs.length}`;
         migrateMeasurements(config);
         const [outputWidth, outputHeight] = Measurements.outputSize(config);

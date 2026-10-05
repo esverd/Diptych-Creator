@@ -100,5 +100,30 @@ UI-22 and UI-23 implemented. Evidence: before-pair-recovery.jpg shows the previo
 - Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z and Ctrl/Cmd+Y redo outside text/form controls. Native input editing keeps its own shortcuts. Modal drafts and in-progress server jobs block composition history restoration.
 - Auto Pair retains independent framing and the layout of an unchanged ordered pair. Newly formed pairs use the active layout. Undo restores the previous pairs and active pair together. New edits clear the redo branch.
 - Browser verification: apply 400% crop, add empty pair, Auto Pair preserves crop; Undo restores Pair 2 of 2, Redo rebuilds; remove photo then Undo restores 400% crop; rotation after Undo clears Redo; Ctrl+Z restores rotation. Three-pair deletion test kept the middle portrait composition active after deleting pair 1, then Undo restored all three.
-- Laptop requested 1024×768 (1138×853 CSS pixels under host scaling): page width equals viewport; Undo, Redo, Auto Pair and Download All remain visible. Screenshot visually inspected.
+- Laptop requested 1024Ã—768 (1138Ã—853 CSS pixels under host scaling): page width equals viewport; Undo, Redo, Auto Pair and Download All remain visible. Screenshot visually inspected.
 - Automated checks: 49 Python tests passed; measurement checks passed; history checks cover coalescing, immutable snapshots, no-ops, bounded history, redo invalidation, per-photo framing preservation, unchanged-pair layout and odd-image pairing. JavaScript syntax and git whitespace checks passed.
+
+
+## Iteration 4: library and arranging (2026-10-05)
+
+Recorded before implementation, from a 26-photo library with long filenames:
+
+- UI-24: Available thumbnails push Upload More and Placed below the panel viewport; filenames share a truncated prefix, no search, and placed images do not identify their pair. Evidence: before-library-navigation.jpg. Add persistent library tools, search with clear/no-match states, readable filename captions, pair/slot indicators and direct navigation to a placed photo's pair.
+- UI-25: Selecting a library photo changes canvas clicks from framing to replacement, but there is no obvious cancel action; clicking the selected thumbnail does not deselect it. Add a visible selected-photo action bar, cancel/deselect/Escape recovery and explicit replacement wording.
+- UI-26: Reversing two photos requires moving one out and restoring it; the move may evict the other photo. Add Swap photos on the composition, retaining each photo's framing and supporting Undo.
+
+- UI-27 (recorded during keyboard exploration): selecting a thumbnail rebuilds the library and drops keyboard focus; canceling the selection or placing through the new bar also removes the focused control. Restore focus to the corresponding thumbnail/canvas slot so keyboard users can continue.
+
+- UI-28 (recorded during reload verification, pending): refreshing the browser loses the entire photo library, curated pairs and framing, despite image files staying on the server. Saved preferences only restore layout defaults. Explore saving/restoring the workspace with validation of missing cached files and explicit new-workspace controls.
+
+
+### Iteration-4 verification
+
+UI-24 through UI-27 implemented; UI-28 remains pending.
+
+- Library tools stay above a separately scrolling collection. All/Available/Placed filters, case-insensitive filename search and Clear search have explicit no-match states. Captions wrap rather than sharing only a truncated prefix; the original filename remains in the accessible label and tooltip. Placed photos identify pair and slot; their location link opens that pair directly. Thumbnail failures stop the indefinite request loop and leave the photo name selectable.
+- Selected-photo bar shows the full filename, explicit Place/Replace slot actions and Cancel. Clicking the selected thumbnail again or Escape deselects it. Keyboard focus remains on the selected thumbnail after selection/cancel, and moves to the canvas slot after placement.
+- Swap photos exchanges complete photo objects, preserving framing/rotation and recording one undoable edit. In the browser, Photo 02 at 90 degrees moved from slot 1 to slot 2 while Photo 05 stayed at 0 degrees; Undo restored their order.
+- Browser checks with 24 long-named photos: FOREST returned 8 matches; a nonexistent filename returned 0 and recovery guidance; Clear restored the list; Placed showed two pair/slot links; the link returned from Pair 2 to Pair 1. Cancel and Escape returned focus to the thumbnail; explicit placement focused the occupied preview slot.
+- Laptop requested 1024 by 768, effective 1138 by 853 CSS pixels: selection bar, full composition and tray remained visible; page width equaled viewport width, canvas bottom 687px and tray top 748px. Visually inspected library-selection-laptop.jpg. Other evidence: library-placed-navigation.jpg and library-no-results.jpg.
+- JavaScript syntax, measurement assertions, history/framing-preservation checks and Git whitespace checks passed. Existing 49 Python tests passed in the preceding iteration; this pass changes frontend code only.

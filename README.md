@@ -58,3 +58,5 @@ Click a placed photo (or its **Crop, position & resize** button) to adjust it in
 
 
 Composition edits support Undo/Redo for the current page session (up to 50 edits). Use the toolbar or Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z outside form fields. Auto Pair preserves each photo's framing; Undo restores the previous arrangement. Uploaded photos remain available when edits are undone.
+
+The photo library supports filename search and All/Available/Placed filters. Placed photos link to their pair. Select a photo to show explicit slot actions, and cancel with Escape or Cancel. Swap photos reverses a pair while retaining each photo's adjustments.

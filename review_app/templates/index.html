@@ -13,7 +13,7 @@
     <!-- Use a relative path to load the compiled CSS when served from the filesystem.
          We avoid Flask's `url_for` helper here because this file may be opened directly
          from disk during development, in which case Jinja templating won't run. -->
-    <link rel="stylesheet" href="../static/css/style.css?v=20261005b">
+    <link rel="stylesheet" href="../static/css/style.css?v=20261005d">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body class="bg-white text-[var(--text-primary)]" style="font-family: Manrope, 'Noto Sans', sans-serif;">
@@ -68,18 +68,20 @@
 
         <main class="flex flex-1 flex-col md:flex-row overflow-y-auto">
             <aside id="left-panel" class="w-full md:w-72 border-b md:border-b-0 md:border-r border-[var(--accent-color)] p-4 space-y-4 hidden md:flex flex-col">
-                <div>
-                    <h2 class="text-lg font-semibold mb-3">Available (<span id="unpaired-count">0</span>)</h2>
-                    <div id="image-pool" class="grid grid-cols-3 md:grid-cols-2 gap-3 overflow-y-auto flex-1"></div>
+                <div class="library-tools">
+                    <div class="library-title"><h2>Photo library</h2><button id="upload-more-btn" class="btn btn-secondary">Upload More</button></div>
+                    <label class="sr-only" for="library-search">Search photos by filename</label><div class="library-search-row"><input id="library-search" type="search" placeholder="Search filenames" autocomplete="off"><button id="library-clear" type="button" aria-label="Clear photo search" hidden>&times;</button></div>
+                    <div class="library-filters" role="group" aria-label="Photo library filter"><button data-filter="all" aria-pressed="true">All</button><button data-filter="available" aria-pressed="false">Available</button><button data-filter="placed" aria-pressed="false">Placed</button></div>
+                    <p id="library-results" class="control-help" role="status"></p>
                 </div>
-                <button id="upload-more-btn" class="btn btn-secondary w-full mt-4"><svg class="mr-2" fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>Upload More</button>
-                <div id="used-images-section">
-                    <h2 class="text-lg font-semibold mt-4 mb-3">Placed (<span id="used-count">0</span>)</h2>
-                    <div id="used-image-pool" class="grid grid-cols-3 md:grid-cols-2 gap-3 overflow-y-auto"></div>
+                <div class="library-content">
+                    <div id="available-images-section"><h2>Available (<span id="unpaired-count">0</span>)</h2><div id="image-pool" class="library-grid"></div></div>
+                    <div id="used-images-section"><h2>Placed (<span id="used-count">0</span>)</h2><div id="used-image-pool" class="library-grid"></div></div>
                 </div>
             </aside>
 
-            <section id="preview-panel" class="workspace-preview"><div class="workspace-heading"><div><p class="eyebrow">COMPOSITION</p><h2 id="pair-heading">Pair 1</h2></div><span id="output-summary"></span></div>
+            <section id="preview-panel" class="workspace-preview"><div class="workspace-heading"><div><p class="eyebrow">COMPOSITION</p><h2 id="pair-heading">Pair 1</h2></div><div class="composition-actions"><span id="output-summary"></span><button id="swap-photos-btn" class="btn btn-secondary" disabled>Swap photos</button></div></div>
+                <div id="selection-bar" hidden><span id="selection-name"></span><div><button id="place-slot-1" class="btn btn-secondary">Place in slot 1</button><button id="place-slot-2" class="btn btn-secondary">Place in slot 2</button><button id="cancel-selection" class="btn btn-secondary">Cancel</button></div></div>
                 <div id="main-canvas" class="w-full max-w-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden relative">
                     <img id="preview-image" class="absolute inset-0 w-full h-full object-cover hidden" alt="Diptych Preview">
                     <div id="lowres-preview" class="absolute inset-0 flex hidden" aria-hidden="true">
@@ -229,6 +231,6 @@
     <script src="../static/js/edit-history.js?v=20261005c"></script>
     <script src="../static/js/measurements.js?v=20261005b"></script>
     <!-- Use a relative path for the app script when the file is opened locally. -->
-    <script src="../static/js/app.js?v=20261005c"></script>
+    <script src="../static/js/app.js?v=20261005d"></script>
 </body>
 </html>
