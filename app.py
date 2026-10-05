@@ -444,6 +444,12 @@ def auto_group():
         if os.path.isfile(os.path.join(UPLOAD_DIR, f))
         and os.path.splitext(f)[1].lstrip('.').lower() in ALLOWED_EXTENSIONS
     ]
+    requested_files = data.get('files')
+    if requested_files is not None:
+        if not isinstance(requested_files, list) or not all(isinstance(name, str) for name in requested_files):
+            return jsonify({"error": "files must be a list of filenames"}), 400
+        requested = set(requested_files)
+        files = [name for name in files if name in requested]
     info: list[dict] = []
     for f in files:
         path = os.path.join(UPLOAD_DIR, f)

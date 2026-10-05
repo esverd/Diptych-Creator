@@ -13,11 +13,16 @@
     <!-- Use a relative path to load the compiled CSS when served from the filesystem.
          We avoid Flask's `url_for` helper here because this file may be opened directly
          from disk during development, in which case Jinja templating won't run. -->
-    <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="../static/css/style.css?v=20261005">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body class="bg-white text-[var(--text-primary)]" style="font-family: Manrope, 'Noto Sans', sans-serif;">
     <input type="file" id="file-uploader" class="hidden" multiple accept="image/png, image/jpeg, image/webp, image/tiff">
+
+        <div id="status-banner" class="status-banner hidden" role="status" aria-live="polite">
+            <span id="status-message"></span>
+            <button id="status-close" class="status-close" type="button" aria-label="Dismiss message">&times;</button>
+        </div>
 
     <div id="welcome-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white">
         <div class="text-center">
@@ -25,10 +30,10 @@
                 <svg width="64" height="64" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_welcome)"><path clip-rule="evenodd" d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z" fill="currentColor" fill-rule="evenodd"></path></g><defs><clipPath id="clip0_welcome"><rect fill="white" height="48" width="48"></rect></clipPath></defs></svg>
             </div>
             <h1 class="text-4xl font-bold tracking-tighter">Diptych Master</h1>
-            <p class="text-slate-600 mt-2">The professional way to create two-image layouts.</p>
-            <div class="mt-8 flex gap-4 justify-center">
+            <p class="text-slate-600 mt-2">Two images. One thoughtful composition.</p>
+            <p class="welcome-help">Upload your photos, arrange a pair, then export a print-ready layout.</p><div class="mt-8 flex gap-4 justify-center">
                 <button id="select-images-btn" class="btn btn-primary w-40">Select Images</button>
-            </div>
+            </div><p class="welcome-formats">JPEG, PNG, WebP &amp; TIFF · Your images stay on this machine</p>
         </div>
     </div>
 
@@ -49,35 +54,30 @@
                 </select>
                 <button id="auto-pair-btn" aria-label="Automatically pair images" class="btn btn-secondary"><span class="truncate">Auto Pair</span></button>
                 <button id="download-btn" aria-label="Download all diptychs" class="btn btn-primary"><span class="truncate">Download All</span></button>
-                <button id="mobile-menu-btn" class="icon-btn md:hidden"></button>
+
             </div>
         </header>
 
-        <div id="status-banner" class="status-banner hidden" role="status" aria-live="polite">
-            <span id="status-message"></span>
-            <button id="status-close" class="status-close" type="button" aria-label="Dismiss message">&times;</button>
-        </div>
-
         <!-- Mobile tab bar shown under the header -->
-        <div id="mobile-tabs" class="md:hidden flex border-b border-[var(--accent-color)]">
+        <nav id="mobile-tabs" aria-label="Workspace views"><button id="tab-preview" class="mobile-tab-active" aria-pressed="true">Preview</button>
             <button id="tab-images" class="flex-1 py-2 text-sm font-medium text-center border-b-2 border-transparent">Images</button>
             <button id="tab-settings" class="flex-1 py-2 text-sm font-medium text-center border-b-2 border-transparent">Settings</button>
-        </div>
+        </nav>
 
         <main class="flex flex-1 flex-col md:flex-row overflow-y-auto">
             <aside id="left-panel" class="w-full md:w-72 border-b md:border-b-0 md:border-r border-[var(--accent-color)] p-4 space-y-4 hidden md:flex flex-col">
                 <div>
-                    <h2 class="text-lg font-semibold mb-3">Your Images (<span id="unpaired-count">0</span>)</h2>
+                    <h2 class="text-lg font-semibold mb-3">Available (<span id="unpaired-count">0</span>)</h2>
                     <div id="image-pool" class="grid grid-cols-3 md:grid-cols-2 gap-3 overflow-y-auto flex-1"></div>
                 </div>
                 <button id="upload-more-btn" class="btn btn-secondary w-full mt-4"><svg class="mr-2" fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>Upload More</button>
                 <div id="used-images-section">
-                    <h2 class="text-lg font-semibold mt-4 mb-3">Used Images (<span id="used-count">0</span>)</h2>
+                    <h2 class="text-lg font-semibold mt-4 mb-3">Placed (<span id="used-count">0</span>)</h2>
                     <div id="used-image-pool" class="grid grid-cols-3 md:grid-cols-2 gap-3 overflow-y-auto"></div>
                 </div>
             </aside>
 
-            <div class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-50 relative">
+            <section id="preview-panel" class="workspace-preview"><div class="workspace-heading"><div><p class="eyebrow">COMPOSITION</p><h2 id="pair-heading">Pair 1</h2></div><span id="output-summary"></span></div>
                 <div id="main-canvas" class="w-full max-w-2xl shadow-2xl border border-[var(--border-color)] overflow-hidden relative">
                     <img id="preview-image" class="absolute inset-0 w-full h-full object-cover hidden" alt="Diptych Preview">
                     <div id="lowres-preview" class="absolute inset-0 flex hidden" aria-hidden="true">
@@ -85,12 +85,12 @@
                         <img id="lowres-img2" class="flex-1 object-cover" alt="Low res image 2">
                     </div>
                     <div id="canvas-grid" class="absolute inset-0 grid grid-cols-2 h-full">
-                        <div class="drop-zone" data-slot="1"></div>
-                        <div class="drop-zone" data-slot="2"></div>
+                        <button type="button" class="drop-zone" data-slot="1" aria-label="Place selected image in slot 1"><span>1<span>Select an image, then place it here</span></span></button>
+                        <button type="button" class="drop-zone" data-slot="2" aria-label="Place selected image in slot 2"><span>2<span>Select an image, then place it here</span></span></button>
                     </div>
                 </div>
-                <p class="mt-4 text-sm text-[var(--text-secondary)]">Drag images from the library or <label id="upload-label" class="text-[var(--primary-color)] font-medium hover:underline cursor-pointer">click here to upload</label>.</p>
-            </div>
+                <p class="mt-4 text-sm text-[var(--text-secondary)]"><span id="placement-hint" aria-live="polite">Select an image, then click a slot. You can also drag images.</span> <button type="button" id="upload-label" class="text-[var(--primary-color)] font-medium hover:underline cursor-pointer">Upload images</button>.</p>
+            </section>
 
             <aside id="right-panel" class="w-full md:w-72 border-t md:border-t-0 md:border-l border-[var(--accent-color)] p-4 space-y-6 hidden md:block">
                 <div>
@@ -112,10 +112,10 @@
                         <div id="custom-dim-container" class="hidden">
                             <label id="custom-dim-label" class="config-label" for="custom-width">Custom Dimensions</label>
                             <div class="flex gap-2 items-center">
-                                <input type="number" id="custom-width" class="form-input-custom !h-9 text-center" placeholder="Width" min="1" step="0.1">
+                                <input type="number" aria-label="Custom width in inches" id="custom-width" class="form-input-custom !h-9 text-center" placeholder="Width" min="1" step="0.1">
                                 <span class="text-gray-400">x</span>
-                                <input type="number" id="custom-height" class="form-input-custom !h-9 text-center" placeholder="Height" min="1" step="0.1">
-                            </div>
+                                <input type="number" aria-label="Custom height in inches" id="custom-height" class="form-input-custom !h-9 text-center" placeholder="Height" min="1" step="0.1">
+                            </div><p id="dimension-error" class="field-error hidden" role="status">Enter a width and height of at least 1 inch.</p>
                         </div>
                         <div>
                             <label class="config-label" for="output-dpi">Resolution (DPI)</label>
@@ -212,12 +212,13 @@
 
         <div id="bottom-bar" class="bg-gray-100 border-t border-[var(--accent-color)] px-4 py-3 overflow-x-auto whitespace-nowrap">
             <div class="flex items-center space-x-3">
-                <button id="scroll-left-btn" class="icon-btn !size-8 shrink-0"><svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg></button>
+                <button aria-label="Scroll pairs left" id="scroll-left-btn" class="icon-btn !size-8 shrink-0"><svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg></button>
                 <div id="diptych-tray" class="inline-flex items-center space-x-3"></div>
-                <button id="scroll-right-btn" class="icon-btn !size-8 shrink-0"><svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg></button>
+                <button aria-label="Scroll pairs right" id="scroll-right-btn" class="icon-btn !size-8 shrink-0"><svg fill="currentColor" height="18" viewBox="0 0 256 256" width="18"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg></button>
             </div>
         </div>
 
+    </div>
         <div id="loading-overlay" class="hidden absolute inset-0 z-50 bg-white/70 backdrop-blur-sm flex items-center justify-center">
             <div class="text-center w-64">
                 <div class="loader"></div>
@@ -229,8 +230,7 @@
                 </div>
             </div>
         </div>
-    </div>
     <!-- Use a relative path for the app script when the file is opened locally. -->
-    <script src="../static/js/app.js"></script>
+    <script src="../static/js/app.js?v=20261005"></script>
 </body>
 </html>

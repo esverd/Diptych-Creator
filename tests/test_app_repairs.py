@@ -170,3 +170,17 @@ def test_download_path_guard_uses_commonpath():
 
     assert is_safe_output_path(safe_path)
     assert not is_safe_output_path(unsafe_prefix_match)
+
+
+def test_auto_group_only_pairs_current_library(tmp_path, monkeypatch):
+    import app as app_module
+    monkeypatch.setattr(app_module, 'UPLOAD_DIR', str(tmp_path))
+    for name in ['first.jpg', 'second.jpg', 'third.jpg', 'previous-session.jpg']:
+        create_image(str(tmp_path / name))
+    names = ['first.jpg', 'second.jpg', 'third.jpg']
+    response = app.test_client().post('/auto_group', json={'files': names})
+    assert response.status_code == 200
+    pairs = response.get_json()['pairs']
+    assert len(pairs) == 2
+    assert sorted(name for pair in pairs for name in pair if name) == sorted(names)
+    assert app.test_client().post('/auto_group', json={'files': 'first.jpg'}).status_code == 400
