@@ -148,6 +148,7 @@ def process_source_image(
     background_color: str = 'white',
     crop_focus: tuple | None = None,
     is_landscape_diptych: bool | None = None,
+    zoom: float = 1.0,
 ) -> Image.Image | None:
     """
     Load an image from disk, apply EXIF orientation and manual rotation, then
@@ -216,28 +217,27 @@ def process_source_image(
                     fx, fy = crop_focus
                     focus_x = min(max(float(fx), 0.0), 1.0)
                     focus_y = min(max(float(fy), 0.0), 1.0)
-                if img_aspect > target_aspect:
-                    # Image is wider than target; crop horizontally
-                    new_width = int(target_aspect * img.height)
-                    max_offset = img.width - new_width
-                    offset = int(max_offset * focus_x)
-                    img = img.crop((offset, 0, offset + new_width, img.height))
-                else:
-                    # Image is taller than target; crop vertically
-                    new_height = int(img.width / target_aspect)
-                    max_offset = img.height - new_height
-                    offset = int(max_offset * focus_y)
-                    img = img.crop((0, offset, img.width, offset + new_height))
+                zoom = max(1.0, float(zoom))
+                new_width = max(1, int(min(img.width, target_aspect * img.height) / zoom))
+                new_height = max(1, int(min(img.height, img.width / target_aspect) / zoom))
+                x = int((img.width - new_width) * focus_x)
+                y = int((img.height - new_height) * focus_y)
+                img = img.crop((x, y, x + new_width, y + new_height))
                 return _flatten_to_rgb(
                     img.resize((half_w, half_h), Image.Resampling.LANCZOS),
                     background_color,
                 )
             else:
                 # Fit mode: scale to fit within the cell and pad with background color
-                img.thumbnail((half_w, half_h), Image.Resampling.LANCZOS)
+                if auto_rotate and zoom == 1.0:
+                    img.thumbnail((half_w, half_h), Image.Resampling.LANCZOS)
+                else:
+                    scale = min(half_w / img.width, half_h / img.height) * min(1.0, zoom)
+                    img = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.Resampling.LANCZOS)
                 background = Image.new('RGB', (half_w, half_h), background_color)
-                paste_x = (half_w - img.width) // 2
-                paste_y = (half_h - img.height) // 2
+                focus_x, focus_y = crop_focus or (0.5, 0.5)
+                paste_x = round((half_w - img.width) * focus_x)
+                paste_y = round((half_h - img.height) * focus_y)
                 if img.mode in ('RGBA', 'LA') or ('transparency' in img.info):
                     rgba = img.convert('RGBA')
                     background.paste(rgba.convert('RGB'), (paste_x, paste_y), rgba.getchannel('A'))
@@ -350,11 +350,12 @@ def create_diptych(
             image_data1['path'],
             processing_dims,
             image_data1.get('rotation', 0),
-            fit_mode,
-            True,
+            image_data1.get('fit_mode') or fit_mode,
+            image_data1.get('auto_rotate', True),
             border_color,
             crop_focus1,
             is_landscape,
+            image_data1.get('zoom', 1.0),
         )
         if img1 is None:
             raise RuntimeError(f"Error processing image: {os.path.basename(image_data1['path'])}")
@@ -363,11 +364,12 @@ def create_diptych(
             image_data2['path'],
             processing_dims,
             image_data2.get('rotation', 0),
-            fit_mode,
-            True,
+            image_data2.get('fit_mode') or fit_mode,
+            image_data2.get('auto_rotate', True),
             border_color,
             crop_focus2,
             is_landscape,
+            image_data2.get('zoom', 1.0),
         )
         if img2 is None:
             raise RuntimeError(f"Error processing image: {os.path.basename(image_data2['path'])}")

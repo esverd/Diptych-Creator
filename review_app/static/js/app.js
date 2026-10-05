@@ -5,6 +5,8 @@ const DiptychApp = (() => {
     let appState = {
         images: [],
         selectedImagePath: null,
+        measurementUnit: 'in',
+        framing: null,
         diptychs: [],
         activeDiptychIndex: 0,
         previewDebounceTimer: null,
@@ -17,10 +19,6 @@ const DiptychApp = (() => {
         traySortable: null,
     };
     const PREVIEW_DEBOUNCE_DELAY = 300;
-
-    function formatPixels(px) {
-        return `${parseInt(px, 10) || 0} px`;
-    }
 
     // --- ELEMENT SELECTORS ---
     const fileUploader = document.getElementById('file-uploader');
@@ -42,7 +40,8 @@ const DiptychApp = (() => {
     const downloadBtn = document.getElementById('download-btn');
     const autoPairBtn = document.getElementById('auto-pair-btn');
     const groupingMethodSelect = document.getElementById('grouping-method');
-    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const unitSelect = document.getElementById('measurement-unit');
+    const framingDialog = document.getElementById('framing-dialog');
     const outputSizeSelect = document.getElementById('output-size');
     const orientationBtn = document.getElementById('orientation-btn');
     const customDimContainer = document.getElementById('custom-dim-container');
@@ -61,17 +60,9 @@ const DiptychApp = (() => {
     const borderColorInput = document.getElementById('border-color');
     const tabImagesBtn = document.getElementById('tab-images');
     const tabSettingsBtn = document.getElementById('tab-settings');
-    // Crop focus selectors (horizontal and vertical) allow the user to
-    // choose which part of the image is preserved when cropping.  Values
-    // correspond to 0 (start), 0.5 (center) and 1 (end).
-    const cropFocusHSelect = document.getElementById('crop-focus-h');
-    const cropFocusVSelect = document.getElementById('crop-focus-v');
     const statusBanner = document.getElementById('status-banner');
     const statusMessage = document.getElementById('status-message');
     const statusCloseBtn = document.getElementById('status-close');
-    const hamburgerIcon = `<svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="18" y2="18"></line></svg>`;
-    const closeIcon = `<svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><line x1="18" x2="6" y1="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>`;
-
     // --- INITIALIZATION ---
     function init() {
         addEventListeners();
@@ -79,6 +70,10 @@ const DiptychApp = (() => {
         loadSavedSettings();
         initializeDragAndDrop();
         updateMobileMenuIcon();
+        initializeFraming();
+        const canvasSizer = new ResizeObserver(fitCanvasToWorkspace);
+        canvasSizer.observe(document.getElementById('preview-panel'));
+        canvasSizer.observe(document.querySelector('.workspace-heading'));
     }
 
     // --- EVENT LISTENERS ---
@@ -89,8 +84,13 @@ const DiptychApp = (() => {
         autoPairBtn.addEventListener('click', autoPairImages);
         document.getElementById('tab-preview').addEventListener('click', () => toggleMobileTab('preview'));
         document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMobileTab('preview'); });
-        document.querySelectorAll('.drop-zone').forEach(zone => zone.addEventListener('click', () => placeImage(appState.selectedImagePath, zone.dataset.slot)));
+        document.querySelectorAll('.drop-zone').forEach(zone => zone.addEventListener('click', () => {
+            const placed = appState.diptychs[appState.activeDiptychIndex]?.[`image${zone.dataset.slot}`];
+            if (placed && !appState.selectedImagePath) openFraming(zone.dataset.slot);
+            else placeImage(appState.selectedImagePath, zone.dataset.slot);
+        }));
         outputSizeSelect.addEventListener('change', handleOutputSizeChange);
+        unitSelect.addEventListener('change', handleUnitChange);
         orientationBtn.addEventListener('click', toggleOrientation);
         [customWidthInput, customHeightInput].forEach(el => el.addEventListener('input', handleConfigChange));
         outputDpiSelect.addEventListener('change', handleConfigChange);
@@ -98,9 +98,9 @@ const DiptychApp = (() => {
         borderSizeSlider.addEventListener('input', handleConfigChange);
         outerBorderSizeSlider.addEventListener('input', handleConfigChange);
         borderColorInput.addEventListener('input', handleConfigChange);
-        if (cropFocusHSelect) cropFocusHSelect.addEventListener('change', handleConfigChange);
-        if (cropFocusVSelect) cropFocusVSelect.addEventListener('change', handleConfigChange);
+
         document.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-frame')) openFraming(e.target.closest('.btn-frame').dataset.slot);
             if (e.target.closest('.btn-rotate')) handleRotate(e);
             if (e.target.closest('.btn-remove')) handleRemove(e);
         });
@@ -138,6 +138,19 @@ const DiptychApp = (() => {
         mainCanvas.style.setProperty("--canvas-ratio", w / h);
         canvasGrid.style.gridTemplateColumns = config.orientation === "portrait" ? "1fr" : "1fr 1fr";
         canvasGrid.style.gridTemplateRows = config.orientation === "portrait" ? "1fr 1fr" : "1fr";
+        fitCanvasToWorkspace();
+    }
+
+    function fitCanvasToWorkspace() {
+        const panel = document.getElementById('preview-panel');
+        if (window.innerWidth < 900 || !panel.clientHeight) return;
+        const style = getComputedStyle(panel);
+        let height = panel.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+        for (const element of [panel.querySelector('.workspace-heading'), panel.querySelector('p.mt-4')]) {
+            const childStyle = getComputedStyle(element);
+            height -= element.getBoundingClientRect().height + (parseFloat(childStyle.marginTop) || 0) + (parseFloat(childStyle.marginBottom) || 0);
+        }
+        mainCanvas.style.setProperty('--available-canvas-height', `${Math.max(60, height)}px`);
     }
 
     function updateMobileMenuIcon() {} // Retained for existing initialization calls.
@@ -159,8 +172,9 @@ const DiptychApp = (() => {
         }
         if (!appState.images.some(image => image.path === path)) return;
         const active = appState.diptychs[appState.activeDiptychIndex];
+        const previousImage = appState.diptychs.flatMap(pair => [pair.image1, pair.image2]).find(image => image?.path === path);
         removeImageFromDiptychs(path);
-        active[`image${slot}`] = { path };
+        active[`image${slot}`] = { ...previousImage, path, auto_rotate: false };
         appState.selectedImagePath = null;
         document.getElementById('placement-hint').textContent = 'Select an image, then click a slot. You can also drag images.';
         renderImagePool();
@@ -267,8 +281,8 @@ const DiptychApp = (() => {
             if (!response.ok) throw new Error('Auto grouping failed');
             const data = await response.json();
             appState.diptychs = data.pairs.map(p => ({
-                image1: p[0] ? { path: p[0] } : null,
-                image2: p[1] ? { path: p[1] } : null,
+                image1: p[0] ? { path: p[0], auto_rotate: false } : null,
+                image2: p[1] ? { path: p[1], auto_rotate: false } : null,
                 config: { ...baseConfig }
             }));
             if (appState.diptychs.length === 0) addNewDiptych();
@@ -286,117 +300,121 @@ const DiptychApp = (() => {
     }
 
 
-    function handleOutputSizeChange() {
-        const selected = outputSizeSelect.value;
-        const isCustom = selected === 'custom';
-        customDimContainer.classList.toggle('hidden', !isCustom);
-        if (isCustom) {
-            const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-            if (activeDiptych) {
-                customWidthInput.value = activeDiptych.config.width;
-                customHeightInput.value = activeDiptych.config.height;
-            }
-            customWidthInput.focus();
+    function migrateMeasurements(config) {
+        config.gap_inches ??= (config.gap || 0) / config.dpi;
+        config.outer_border_inches ??= (config.outer_border || 0) / config.dpi;
+    }
+
+    function handleUnitChange() {
+        if (!validateVisibleLengths()) {
+            unitSelect.value = appState.measurementUnit;
+            return;
         }
+        appState.measurementUnit = unitSelect.value;
+        renderActiveDiptychUI();
+        saveSettings();
+    }
+
+    function handleOutputSizeChange() {
+        if (outputSizeSelect.value === 'custom') {
+            customWidthInput.focus();
+            return;
+        }
+        const config = appState.diptychs[appState.activeDiptychIndex].config;
+        [config.width, config.height] = outputSizeSelect.value.split('x').map(Number);
+        if (config.width === config.height) config.orientation = 'landscape';
+        renderActiveDiptychUI();
         handleConfigChange();
     }
 
     function saveSettings() {
         try {
-            const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-            if (!activeDiptych) return;
-            const settings = {
-                outputSize: outputSizeSelect.value,
-                customWidth: customWidthInput.value,
-                customHeight: customHeightInput.value,
-                orientation: activeDiptych.config.orientation,
-                border: parseInt(borderSizeSlider.value, 10),
-                outerBorder: parseInt(outerBorderSizeSlider.value, 10),
-                dpi: outputDpiSelect.value,
-                fitMode: imageFittingSelect.value,
-                borderColor: borderColorInput.value,
-                cropFocus: activeDiptych.config.crop_focus,
-            };
-            localStorage.setItem('diptychSettings', JSON.stringify(settings));
-        } catch (err) {
-            console.warn('Failed to save settings', err);
-        }
+            const config = appState.diptychs[appState.activeDiptychIndex]?.config;
+            if (!config) return;
+            localStorage.setItem('diptychSettings', JSON.stringify({ version: 2, unit: appState.measurementUnit, config }));
+        } catch (err) { console.warn('Failed to save settings', err); }
     }
 
     function loadSavedSettings() {
         try {
-            const raw = localStorage.getItem('diptychSettings');
-            if (!raw) return;
-            const settings = JSON.parse(raw);
-            if (settings.outputSize) outputSizeSelect.value = settings.outputSize;
-            if (settings.customWidth) customWidthInput.value = settings.customWidth;
-            if (settings.customHeight) customHeightInput.value = settings.customHeight;
-            if (settings.dpi) outputDpiSelect.value = settings.dpi;
-            if (settings.border !== undefined) borderSizeSlider.value = settings.border;
-            if (settings.outerBorder !== undefined) outerBorderSizeSlider.value = settings.outerBorder;
-            if (settings.fitMode) imageFittingSelect.value = settings.fitMode;
-            if (settings.borderColor) borderColorInput.value = settings.borderColor;
-            const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-            if (activeDiptych && settings.orientation) {
-                activeDiptych.config.orientation = settings.orientation;
+            const settings = JSON.parse(localStorage.getItem('diptychSettings') || 'null');
+            if (!settings) return;
+            const active = appState.diptychs[appState.activeDiptychIndex];
+            if (settings.version === 2 && settings.config) {
+                active.config = { ...active.config, ...settings.config };
+                appState.measurementUnit = ['mm', 'in', 'px'].includes(settings.unit) ? settings.unit : 'in';
+            } else {
+                // Migrate the original inch dimensions / pixel spacing preference.
+                const dimensions = settings.outputSize === 'custom' ? [Number(settings.customWidth), Number(settings.customHeight)] : (settings.outputSize || '6x4').split('x').map(Number);
+                if (dimensions.every(value => value > 0 && Number.isFinite(value))) [active.config.width, active.config.height] = dimensions;
+                active.config.dpi = Number(settings.dpi) || 300;
+                active.config.orientation = settings.orientation || 'landscape';
+                active.config.gap = settings.border ?? 20;
+                active.config.outer_border = settings.outerBorder ?? 20;
+                active.config.fit_mode = settings.fitMode || 'fit';
+                active.config.border_color = settings.borderColor || '#ffffff';
+                active.config.crop_focus = settings.cropFocus || [0.5, 0.5];
             }
-            if (activeDiptych && Array.isArray(settings.cropFocus)) {
-                activeDiptych.config.crop_focus = settings.cropFocus;
-            }
-            handleConfigChange();
-        } catch (err) {
-            console.warn('Failed to load settings', err);
-        }
-
+            migrateMeasurements(active.config);
+            renderActiveDiptychUI();
+        } catch (err) { console.warn('Failed to load settings', err); }
     }
 
-    function handleConfigChange() {
-        const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-        if (!activeDiptych) return;
-        const config = activeDiptych.config;
-        const selectedSize = outputSizeSelect.value;
-        if (selectedSize === 'custom') {
-            const width = Number(customWidthInput.value);
-            const height = Number(customHeightInput.value);
-            const invalid = !Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1;
-            document.getElementById('dimension-error').classList.toggle('hidden', !invalid);
-            customWidthInput.setAttribute('aria-invalid', String(invalid));
-            customHeightInput.setAttribute('aria-invalid', String(invalid));
-            if (invalid) return;
-            config.width = width;
-            config.height = height;
-        } else {
-            document.getElementById('dimension-error').classList.add('hidden');
-            [config.width, config.height] = selectedSize.split('x').map(parseFloat);
+    function visibleLengths(dpi = Number(outputDpiSelect.value)) {
+        const unit = appState.measurementUnit;
+        return [customWidthInput, customHeightInput, borderSizeSlider, outerBorderSizeSlider].map(input => Measurements.toInches(input.value || NaN, unit, dpi));
+    }
+
+    function validateVisibleLengths() {
+        const lengths = visibleLengths();
+        const error = Measurements.validate(...lengths, Number(outputDpiSelect.value));
+        const message = document.getElementById('dimension-error');
+        message.textContent = error;
+        message.classList.toggle('hidden', !error);
+        [customWidthInput, customHeightInput, borderSizeSlider, outerBorderSizeSlider].forEach(input => input.setAttribute('aria-invalid', String(Boolean(error))));
+        return !error;
+    }
+
+    function handleConfigChange(event) {
+        const active = appState.diptychs[appState.activeDiptychIndex];
+        if (!active || !validateVisibleLengths()) return;
+        const config = active.config;
+        migrateMeasurements(config);
+        const target = event?.target;
+        const dpi = Number(outputDpiSelect.value);
+        const [width, height, gap, border] = visibleLengths(dpi);
+        const pixelDpiChange = target === outputDpiSelect && appState.measurementUnit === 'px';
+        if (target === customWidthInput || target === customHeightInput || pixelDpiChange) {
+            config.width = Math.max(width, height);
+            config.height = Math.min(width, height);
+            config.orientation = width < height ? 'portrait' : 'landscape';
+            if (!pixelDpiChange) outputSizeSelect.value = 'custom';
         }
-        config.dpi = parseInt(outputDpiSelect.value, 10);
+        if (target === borderSizeSlider || pixelDpiChange) config.gap_inches = gap;
+        if (target === outerBorderSizeSlider || pixelDpiChange) config.outer_border_inches = border;
+        config.dpi = dpi;
+        config.gap = Math.round(config.gap_inches * dpi);
+        config.outer_border = Math.round(config.outer_border_inches * dpi);
         config.fit_mode = imageFittingSelect.value;
-        config.gap = parseInt(borderSizeSlider.value, 10);
-        borderSizeValue.textContent = formatPixels(config.gap);
-        config.outer_border = parseInt(outerBorderSizeSlider.value, 10);
-        outerBorderSizeValue.textContent = formatPixels(config.outer_border);
         config.border_color = borderColorInput.value;
-        // Update crop focus from selectors if present
-        if (cropFocusHSelect && cropFocusVSelect) {
-            const hValue = parseFloat(cropFocusHSelect.value);
-            const vValue = parseFloat(cropFocusVSelect.value);
-            if (!isNaN(hValue) && !isNaN(vValue)) {
-                config.crop_focus = [hValue, vValue];
-            }
-        }
-        // Keep preview background in sync with selected border color
-        previewImage.style.backgroundColor = config.border_color;
-        mainCanvas.style.backgroundColor = config.border_color;
-        // Update UI elements that depend on config changes
-        renderActiveDiptychUI(true);
+        renderActiveDiptychUI(Boolean(target && [customWidthInput, customHeightInput, borderSizeSlider, outerBorderSizeSlider].includes(target)));
         updateActiveTrayPreview();
         requestPreviewRefresh();
         saveSettings();
     }
 
+    function serializeDiptych(diptych) {
+        const payload = JSON.parse(JSON.stringify(diptych));
+        [payload.image1, payload.image2].filter(Boolean).forEach(image => {
+            image.crop_focus ??= diptych.config.crop_focus || [0.5, 0.5];
+            image.auto_rotate = false;
+        });
+        return payload;
+    }
+
     function toggleOrientation() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-        if (!activeDiptych) return;
+        if (!activeDiptych || !validateVisibleLengths()) return;
         activeDiptych.config.orientation = activeDiptych.config.orientation === 'landscape' ? 'portrait' : 'landscape';
         renderActiveDiptychUI();
         updateActiveTrayPreview();
@@ -410,6 +428,8 @@ const DiptychApp = (() => {
         const imageKey = `image${slot}`;
         if (activeDiptych?.[imageKey]) {
             activeDiptych[imageKey].rotation = ((activeDiptych[imageKey].rotation || 0) + 90) % 360;
+            activeDiptych[imageKey].auto_rotate = false;
+            renderActiveDiptychUI();
             updateActiveTrayPreview();
             requestPreviewRefresh();
         }
@@ -477,6 +497,7 @@ const DiptychApp = (() => {
             thumbContainer.addEventListener('click', () => {
                 appState.selectedImagePath = imgData.path;
                 renderImagePool();
+                renderActiveDiptychUI(true);
                 document.getElementById('placement-hint').textContent = `Selected ${imgData.path}. Choose slot 1 or 2 to place it.`;
                 toggleMobileTab('preview');
             });
@@ -539,30 +560,50 @@ const DiptychApp = (() => {
         if (!activeDiptych) return;
         const { config } = activeDiptych;
         document.getElementById('pair-heading').textContent = `Pair ${appState.activeDiptychIndex + 1} of ${appState.diptychs.length}`;
-        document.getElementById('output-summary').textContent = `${config.orientation === 'portrait' ? config.height : config.width} × ${config.orientation === 'portrait' ? config.width : config.height} in · ${config.dpi} DPI`;
+        migrateMeasurements(config);
+        const [outputWidth, outputHeight] = Measurements.outputSize(config);
+        const unit = appState.measurementUnit;
+        const pixelSummary = `${Math.floor(outputWidth * config.dpi)} × ${Math.floor(outputHeight * config.dpi)} px`;
+        document.getElementById('output-summary').textContent = unit === 'px' ? `${pixelSummary} · ${config.dpi} DPI` : `${Measurements.display(outputWidth, unit, config.dpi)} × ${Measurements.display(outputHeight, unit, config.dpi)} ${unit} · ${pixelSummary}`;
+        document.getElementById('resolution-help').textContent = unit === 'px' ? 'DPI changes print size; pixel dimensions stay fixed.' : 'DPI changes pixel resolution; print dimensions and spacing stay fixed.';
+        unitSelect.value = unit;
+        document.querySelectorAll('.length-unit').forEach(label => label.textContent = unit);
+        customWidthInput.setAttribute('aria-label', `Output width (${unit})`);
+        customHeightInput.setAttribute('aria-label', `Output height (${unit})`);
+        [customWidthInput, customHeightInput, borderSizeSlider, outerBorderSizeSlider].forEach(input => { input.step = 'any'; input.min = input === borderSizeSlider || input === outerBorderSizeSlider ? '0' : unit === 'px' ? '2' : '0.01'; });
+        for (const option of outputSizeSelect.options) {
+            if (option.value === 'custom') continue;
+            const [w, h] = option.value.split('x').map(Number);
+            option.textContent = `${Measurements.display(w, unit, config.dpi)} × ${Measurements.display(h, unit, config.dpi)} ${unit}${w === h ? ' (square)' : ''}`;
+        }
         document.querySelectorAll('.drop-zone').forEach(zone => {
             const filled = Boolean(activeDiptych[`image${zone.dataset.slot}`]);
             zone.classList.toggle('slot-filled', filled);
-            zone.setAttribute('aria-label', `${filled ? 'Replace' : 'Place selected image in'} slot ${zone.dataset.slot}`);
+            zone.setAttribute('aria-label', filled && !appState.selectedImagePath ? `Adjust photo ${zone.dataset.slot} in preview` : `${filled ? 'Replace' : 'Place selected image in'} slot ${zone.dataset.slot}`);
+            zone.querySelector('span > span').textContent = filled ? (appState.selectedImagePath ? 'Click to replace this photo' : 'Click to crop, position or resize') : 'Select an image, then place it here';
         });
         updateCanvasAspectRatio(config);
-        const sizeValue = `${config.width}x${config.height}`;
-        outputSizeSelect.value = preserveCustom && outputSizeSelect.value === 'custom' ? 'custom' : (outputSizeSelect.querySelector(`option[value="${sizeValue}"]`) ? sizeValue : 'custom');
-        customDimContainer.classList.toggle('hidden', outputSizeSelect.value !== 'custom');
-        customWidthInput.value = config.width;
-        customHeightInput.value = config.height;
+        const preset = Array.from(outputSizeSelect.options).find(option => {
+            const [w, h] = option.value.split('x').map(Number);
+            return Math.abs(w - config.width) < 0.00001 && Math.abs(h - config.height) < 0.00001;
+        });
+        if (!preserveCustom) {
+            outputSizeSelect.value = preset ? preset.value : 'custom';
+            customWidthInput.value = Measurements.display(outputWidth, unit, config.dpi);
+            customHeightInput.value = Measurements.display(outputHeight, unit, config.dpi);
+            borderSizeSlider.value = Measurements.display(config.gap_inches, unit, config.dpi);
+            outerBorderSizeSlider.value = Measurements.display(config.outer_border_inches, unit, config.dpi);
+            document.getElementById('dimension-error').classList.add('hidden');
+            [customWidthInput, customHeightInput, borderSizeSlider, outerBorderSizeSlider].forEach(input => input.setAttribute('aria-invalid', 'false'));
+        }
+        customDimContainer.classList.remove('hidden');
         outputDpiSelect.value = config.dpi;
         imageFittingSelect.value = config.fit_mode;
-        borderSizeSlider.value = config.gap;
-        borderSizeValue.textContent = formatPixels(config.gap);
-        outerBorderSizeSlider.value = config.outer_border;
-        outerBorderSizeValue.textContent = formatPixels(config.outer_border);
+        borderSizeSlider.setAttribute('aria-label', `Space between photos (${unit})`);
+        outerBorderSizeSlider.setAttribute('aria-label', `Outer border (${unit})`);
+        borderSizeValue.textContent = unit;
+        outerBorderSizeValue.textContent = unit;
         borderColorInput.value = config.border_color;
-        // Sync crop focus selectors with the configuration
-        if (cropFocusHSelect && cropFocusVSelect && Array.isArray(config.crop_focus)) {
-            cropFocusHSelect.value = String(config.crop_focus[0]);
-            cropFocusVSelect.value = String(config.crop_focus[1]);
-        }
         // Sync preview background with current border color
         previewImage.style.backgroundColor = config.border_color;
         mainCanvas.style.backgroundColor = config.border_color;
@@ -574,8 +615,15 @@ const DiptychApp = (() => {
         orientationBtn.disabled = isSquare;
         orientationBtn.classList.toggle('opacity-50', isSquare);
         orientationBtn.classList.toggle('cursor-not-allowed', isSquare);
+        if (!appState.selectedImagePath) document.getElementById('placement-hint').textContent = activeDiptych.image1 || activeDiptych.image2 ? 'Click a photo to adjust it. Select an image from the library to replace it.' : 'Select an image, then click a slot. You can also drag images.';
         document.getElementById('image-1-controls').classList.toggle('hidden', !activeDiptych.image1);
         document.getElementById('image-2-controls').classList.toggle('hidden', !activeDiptych.image2);
+        [1, 2].forEach(slot => {
+            const image = activeDiptych[`image${slot}`];
+            if (!image) return;
+            document.getElementById(`image-${slot}-name`).textContent = image.path;
+            document.getElementById(`image-${slot}-summary`).textContent = `${(image.fit_mode || config.fit_mode) === 'fill' ? 'Fill' : 'Fit'} · ${Math.round((image.zoom || 1) * 100)}% · ${image.rotation || 0}°`;
+        });
     }
 
     function renderDiptychTray() {
@@ -710,9 +758,7 @@ const DiptychApp = (() => {
         try {
             mainCanvas.classList.add('preview-loading');
             // Create a deep copy of the diptych and attach crop_focus to each image
-            const diptychPayload = JSON.parse(JSON.stringify(activeDiptych));
-            if (diptychPayload.image1) diptychPayload.image1.crop_focus = activeDiptych.config.crop_focus;
-            if (diptychPayload.image2) diptychPayload.image2.crop_focus = activeDiptych.config.crop_focus;
+            const diptychPayload = serializeDiptych(activeDiptych);
             const response = await fetch('/get_wysiwyg_preview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -763,9 +809,7 @@ const DiptychApp = (() => {
         element.classList.toggle('landscape', diptych.config.orientation !== 'portrait');
         try {
             // Include crop_focus in payload
-            const diptychPayload = JSON.parse(JSON.stringify(diptych));
-            if (diptychPayload.image1) diptychPayload.image1.crop_focus = diptych.config.crop_focus;
-            if (diptychPayload.image2) diptychPayload.image2.crop_focus = diptych.config.crop_focus;
+            const diptychPayload = serializeDiptych(diptych);
             const response = await fetch('/get_wysiwyg_preview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -792,6 +836,180 @@ const DiptychApp = (() => {
         if (element?.dataset?.objectUrl) {
             URL.revokeObjectURL(element.dataset.objectUrl);
             delete element.dataset.objectUrl;
+        }
+    }
+
+    // --- INDEPENDENT PHOTO FRAMING ---
+    function initializeFraming() {
+        const canvas = document.getElementById('framing-canvas');
+        const close = () => framingDialog.close();
+        ['framing-close', 'framing-cancel'].forEach(id => document.getElementById(id).addEventListener('click', close));
+        framingDialog.addEventListener('close', () => {
+            const trigger = appState.framing?.trigger;
+            appState.framing = null;
+            trigger?.focus();
+        });
+        document.getElementById('framing-mode').addEventListener('change', event => {
+            const frame = appState.framing;
+            frame.draft.fit_mode = event.target.value;
+            frame.draft.zoom = 1;
+            updateFraming();
+        });
+        ['zoom', 'x', 'y'].forEach(axis => document.getElementById(`framing-${axis}`).addEventListener('input', event => {
+            const draft = appState.framing.draft;
+            if (axis === 'zoom') draft.zoom = Number(event.target.value);
+            else draft.crop_focus[axis === 'x' ? 0 : 1] = Number(event.target.value);
+            updateFraming();
+        }));
+        document.getElementById('framing-rotate').addEventListener('click', () => {
+            const frame = appState.framing;
+            frame.draft.rotation = ((frame.draft.rotation || 0) + 90) % 360;
+            frame.rotated = null;
+            updateFraming();
+        });
+        document.getElementById('framing-reset').addEventListener('click', () => {
+            Object.assign(appState.framing.draft, { rotation: 0, zoom: 1, crop_focus: [0.5, 0.5] });
+            appState.framing.rotated = null;
+            updateFraming();
+        });
+        document.getElementById('framing-apply').addEventListener('click', () => {
+            const frame = appState.framing;
+            if (!frame?.source || !frame.ready) return;
+            frame.pair[`image${frame.slot}`] = { ...frame.draft, crop_focus: [...frame.draft.crop_focus], auto_rotate: false };
+            framingDialog.close();
+            renderActiveDiptychUI();
+            updateActiveTrayPreview();
+            requestPreviewRefresh();
+        });
+        let drag = null;
+        canvas.addEventListener('pointerdown', event => {
+            const frame = appState.framing;
+            if (!frame?.ready || event.button !== 0) return;
+            canvas.focus();
+            canvas.setPointerCapture(event.pointerId);
+            drag = { x: event.clientX, y: event.clientY, focus: [...frame.draft.crop_focus] };
+        });
+        canvas.addEventListener('pointermove', event => {
+            if (!drag || !appState.framing?.geometry) return;
+            const frame = appState.framing;
+            const geometry = frame.geometry;
+            const rect = canvas.getBoundingClientRect();
+            const dx = (event.clientX - drag.x) * canvas.width / rect.width;
+            const dy = (event.clientY - drag.y) * canvas.height / rect.height;
+            const rangeX = canvas.width - geometry.width;
+            const rangeY = canvas.height - geometry.height;
+            if (Math.abs(rangeX) > 0.5) frame.draft.crop_focus[0] = clamp(drag.focus[0] + dx / rangeX);
+            if (Math.abs(rangeY) > 0.5) frame.draft.crop_focus[1] = clamp(drag.focus[1] + dy / rangeY);
+            updateFraming();
+        });
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(name => canvas.addEventListener(name, () => { drag = null; }));
+        canvas.addEventListener('keydown', event => {
+            const direction = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [1, -1], ArrowDown: [1, 1] }[event.key];
+            if (!direction || !appState.framing?.geometry) return;
+            event.preventDefault();
+            const frame = appState.framing;
+            const axis = direction[0];
+            const range = axis === 0 ? canvas.width - frame.geometry.width : canvas.height - frame.geometry.height;
+            if (Math.abs(range) > 0.5) frame.draft.crop_focus[axis] = clamp(frame.draft.crop_focus[axis] + direction[1] * (range > 0 ? 1 : -1) * (event.shiftKey ? 0.1 : 0.01));
+            updateFraming();
+        });
+    }
+
+    function clamp(value) { return Math.min(1, Math.max(0, value)); }
+
+    function openFraming(slot) {
+        if (!validateVisibleLengths()) {
+            showStatus('Correct the output dimensions before adjusting a photo.', 'warning');
+            return;
+        }
+        const pair = appState.diptychs[appState.activeDiptychIndex];
+        const image = pair[`image${slot}`];
+        if (!image) return;
+        const frame = {
+            pair, slot, source: new Image(), ready: false, rotated: null,
+            trigger: document.querySelector(`.btn-frame[data-slot="${slot}"]`),
+            draft: { ...image, rotation: image.rotation || 0, zoom: image.zoom || 1, fit_mode: image.fit_mode || pair.config.fit_mode, crop_focus: [...(image.crop_focus || pair.config.crop_focus || [0.5, 0.5])], auto_rotate: false }
+        };
+        appState.framing = frame;
+        document.getElementById('framing-title').textContent = `Adjust photo ${slot}`;
+        document.getElementById('framing-filename').textContent = image.path;
+        document.getElementById('framing-error').classList.add('hidden');
+        document.getElementById('framing-help').textContent = 'Loading photo…';
+        framingDialog.showModal();
+        updateFraming();
+        frame.source.onload = () => {
+            if (appState.framing !== frame) return;
+            frame.ready = true;
+            updateFraming();
+        };
+        frame.source.onerror = () => {
+            if (appState.framing !== frame) return;
+            document.getElementById('framing-error').textContent = 'Photo could not be loaded. Cancel and upload it again.';
+            document.getElementById('framing-error').classList.remove('hidden');
+            document.getElementById('framing-help').textContent = 'The photo is unavailable.';
+        };
+        frame.source.src = `/framing_source/${encodeURIComponent(image.path)}`;
+    }
+
+    function updateFraming() {
+        const frame = appState.framing;
+        if (!frame) return;
+        const { draft, pair } = frame;
+        const canvas = document.getElementById('framing-canvas');
+        const config = pair.config;
+        const [w, h] = Measurements.outputSize(config).map(value => Math.floor(value * config.dpi));
+        const border = Math.round(Measurements.spacing(config, 'outer_border') * config.dpi);
+        const gap = pair.image1 && pair.image2 ? Math.round(Measurements.spacing(config, 'gap') * config.dpi) : 0;
+        const cellW = w >= h ? Math.floor((w - 2 * border - gap) / 2) : w - 2 * border;
+        const cellH = w >= h ? h - 2 * border : Math.floor((h - 2 * border - gap) / 2);
+        const ratio = cellW / cellH;
+        canvas.width = Math.round(Math.min(650, 480 * ratio));
+        canvas.height = Math.round(canvas.width / ratio);
+        document.getElementById('framing-stage').style.aspectRatio = String(ratio);
+        const context = canvas.getContext('2d');
+        context.fillStyle = config.border_color;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        document.getElementById('framing-mode').value = draft.fit_mode;
+        const zoom = document.getElementById('framing-zoom');
+        zoom.min = draft.fit_mode === 'fit' ? '0.1' : '1';
+        zoom.max = draft.fit_mode === 'fit' ? '1' : '4';
+        draft.zoom = Math.min(Number(zoom.max), Math.max(Number(zoom.min), draft.zoom));
+        zoom.value = draft.zoom;
+        document.getElementById('framing-zoom-value').textContent = `${Math.round(draft.zoom * 100)}%`;
+        document.getElementById('framing-size-help').textContent = draft.fit_mode === 'fill' ? '100% fills the frame. Zoom in to crop closer.' : '100% fits the whole photo. Reduce size to add space around it.';
+        ['x', 'y'].forEach((axis, index) => {
+            document.getElementById(`framing-${axis}`).value = draft.crop_focus[index];
+            document.getElementById(`framing-${axis}-value`).textContent = `${Math.round(draft.crop_focus[index] * 100)}%`;
+        });
+        document.getElementById('framing-apply').disabled = !frame.ready;
+        if (!frame.ready) return;
+        document.getElementById('framing-help').textContent = 'Drag the photo to reposition it. Arrow keys move it precisely.';
+        if (!frame.rotated) {
+            const rotated = document.createElement('canvas');
+            const swap = draft.rotation % 180 !== 0;
+            rotated.width = swap ? frame.source.naturalHeight : frame.source.naturalWidth;
+            rotated.height = swap ? frame.source.naturalWidth : frame.source.naturalHeight;
+            const sourceContext = rotated.getContext('2d');
+            sourceContext.translate(rotated.width / 2, rotated.height / 2);
+            sourceContext.rotate(draft.rotation * Math.PI / 180);
+            sourceContext.drawImage(frame.source, -frame.source.naturalWidth / 2, -frame.source.naturalHeight / 2);
+            frame.rotated = rotated;
+        }
+        const source = frame.rotated;
+        const scale = (draft.fit_mode === 'fill' ? Math.max : Math.min)(canvas.width / source.width, canvas.height / source.height) * draft.zoom;
+        const width = source.width * scale, height = source.height * scale;
+        frame.geometry = { width, height };
+        context.drawImage(source, (canvas.width - width) * draft.crop_focus[0], (canvas.height - height) * draft.crop_focus[1], width, height);
+        const xEnabled = Math.abs(canvas.width - width) > 0.5, yEnabled = Math.abs(canvas.height - height) > 0.5;
+        document.getElementById('framing-x').disabled = !xEnabled;
+        document.getElementById('framing-y').disabled = !yEnabled;
+        canvas.classList.toggle('can-pan', xEnabled || yEnabled);
+        // Frame guides do not appear in the exported image.
+        context.strokeStyle = '#ffffff66';
+        context.lineWidth = 1;
+        for (const fraction of [1 / 3, 2 / 3]) {
+            context.beginPath(); context.moveTo(canvas.width * fraction, 0); context.lineTo(canvas.width * fraction, canvas.height); context.stroke();
+            context.beginPath(); context.moveTo(0, canvas.height * fraction); context.lineTo(canvas.width, canvas.height * fraction); context.stroke();
         }
     }
 
@@ -850,8 +1068,8 @@ const DiptychApp = (() => {
     // --- FINAL GENERATION ---
     async function generateDiptychs() {
         if (appState.isGenerating) return;
-        if (outputSizeSelect.value === 'custom' && !document.getElementById('dimension-error').classList.contains('hidden')) {
-            showStatus('Correct the custom width and height before downloading.', 'warning');
+        if (!validateVisibleLengths()) {
+            showStatus('Correct the output dimensions, spacing or border before downloading.', 'warning');
             customWidthInput.focus();
             return;
         }
@@ -865,8 +1083,9 @@ const DiptychApp = (() => {
         const payload = {
             pairs: pairsToGenerate.map(d => {
                 // Copy image objects and attach crop_focus to each
-                const img1 = d.image1 ? { ...d.image1, crop_focus: d.config.crop_focus } : null;
-                const img2 = d.image2 ? { ...d.image2, crop_focus: d.config.crop_focus } : null;
+                const framed = serializeDiptych(d);
+                const img1 = framed.image1;
+                const img2 = framed.image2;
                 return { pair: [img1, img2], config: d.config };
             }),
             order: appState.diptychs.map(d => ({

@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 import uuid
 import random
 import colorsys
+import math
 
 # Configure Flask to look in the `review_app` folder for templates and static assets.
 app = Flask(__name__, template_folder='review_app/templates', static_folder='review_app/static')
@@ -169,14 +170,33 @@ def normalize_config(config, dpi_cap=None, both_images=True):
     except (TypeError, ValueError) as exc:
         raise ValueError('Width, height, DPI, spacing, and border must be numeric') from exc
 
-    if width <= 0 or height <= 0:
+    if not math.isfinite(width) or not math.isfinite(height) or width <= 0 or height <= 0:
         raise ValueError('Width and height must be greater than zero')
     if dpi <= 0 or dpi > 1200:
         raise ValueError('DPI must be between 1 and 1200')
     if gap < 0 or outer_border < 0:
         raise ValueError('Spacing and outer border cannot be negative')
+    output_dpi = dpi
     if dpi_cap is not None:
         dpi = min(dpi, dpi_cap)
+    # Physical lengths keep the same proportions at preview and export DPI.
+    # Legacy clients still send pixels at their requested output resolution.
+    for key, legacy_value in [('gap', gap), ('outer_border', outer_border)]:
+        physical = config.get(f'{key}_inches')
+        if physical is not None:
+            try:
+                physical = float(physical)
+            except (TypeError, ValueError) as exc:
+                raise ValueError('Spacing and border must be numeric') from exc
+            if not math.isfinite(physical) or physical < 0:
+                raise ValueError('Spacing and border must be finite, non-negative lengths')
+            value = round(physical * dpi)
+        else:
+            value = round(legacy_value * dpi / output_dpi)
+        if key == 'gap':
+            gap = value
+        else:
+            outer_border = value
 
     orientation = config.get('orientation') or 'landscape'
     if orientation not in VALID_ORIENTATIONS:
@@ -227,10 +247,28 @@ def resolve_uploaded_image(image_data):
         rotation = int(image_data.get('rotation', 0)) % 360
     except (TypeError, ValueError):
         rotation = 0
+    fit_mode = image_data.get('fit_mode')
+    if fit_mode is not None and fit_mode not in VALID_FIT_MODES:
+        raise ValueError('Image fitting must be fill or fit')
+    try:
+        zoom = float(image_data.get('zoom', 1))
+        focus = image_data.get('crop_focus') or [0.5, 0.5]
+        if len(focus) != 2:
+            raise ValueError('Crop position requires two coordinates')
+        focus = [float(value) for value in focus]
+    except (TypeError, ValueError) as exc:
+        raise ValueError('Image zoom and position must be numeric') from exc
+    if not math.isfinite(zoom) or not 0.1 <= zoom <= 4:
+        raise ValueError('Image zoom must be between 0.1 and 4')
+    if not all(math.isfinite(value) and 0 <= value <= 1 for value in focus):
+        raise ValueError('Image position must be between 0 and 1')
     return {
         'path': path,
         'rotation': rotation,
-        'crop_focus': image_data.get('crop_focus'),
+        'crop_focus': focus,
+        'zoom': zoom,
+        'fit_mode': fit_mode,
+        'auto_rotate': bool(image_data.get('auto_rotate', True)),
     }
 
 def render_diptych_preview(diptych_data, dpi_cap=150):
@@ -258,11 +296,12 @@ def render_diptych_preview(diptych_data, dpi_cap=150):
             image1['path'],
             processing_dims,
             image1['rotation'],
-            fit_mode,
-            True,
+            image1['fit_mode'] or fit_mode,
+            image1['auto_rotate'],
             border_color,
             image1['crop_focus'],
             is_landscape,
+            image1['zoom'],
         )
         if img1 is None:
             raise RuntimeError(f"Error processing image: {os.path.basename(image1['path'])}")
@@ -271,11 +310,12 @@ def render_diptych_preview(diptych_data, dpi_cap=150):
             image2['path'],
             processing_dims,
             image2['rotation'],
-            fit_mode,
-            True,
+            image2['fit_mode'] or fit_mode,
+            image2['auto_rotate'],
             border_color,
             image2['crop_focus'],
             is_landscape,
+            image2['zoom'],
         )
         if img2 is None:
             raise RuntimeError(f"Error processing image: {os.path.basename(image2['path'])}")
@@ -570,6 +610,25 @@ def preview_result(job_id):
     return send_file(io.BytesIO(job['data']), mimetype='image/jpeg')
 
 # --- WYSIWYG PREVIEW ENDPOINT ---
+@app.route('/framing_source/<filename>')
+def framing_source(filename):
+    """Serve an EXIF-corrected, bounded source for interactive photo framing."""
+    try:
+        image = resolve_uploaded_image({'path': filename})
+        with Image.open(image['path']) as source:
+            source = diptych_creator.apply_exif_orientation(source)
+            source.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+            source = flatten_thumbnail_image(source)
+            buf = io.BytesIO()
+            source.save(buf, format='JPEG', quality=95)
+            buf.seek(0)
+        return send_file(buf, mimetype='image/jpeg')
+    except FileNotFoundError as exc:
+        return jsonify({'error': str(exc)}), 404
+    except (ValueError, OSError) as exc:
+        return jsonify({'error': str(exc)}), 400
+
+
 @app.route('/get_wysiwyg_preview', methods=['POST'])
 def get_wysiwyg_preview():
     """

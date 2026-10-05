@@ -22,7 +22,8 @@ Evidence uses synthetic landscape, portrait, square and corrupt JPEG files (no p
 - Empty/new pair, switching, delete, tray scroll; odd auto-pair.
 - Custom blank/negative dimensions and recovery; portrait/square; advanced settings.
 - Export and preview failure feedback; successful ZIP download.
-- Existing automated checks; screenshots before and after.
+- Existing automated checks; screenshots before and after.
+
 
 ## Findings during verification
 
@@ -55,3 +56,35 @@ UI-01 through UI-03 and UI-05 through UI-14 are implemented. UI-04 has a minimal
 Screenshots use synthetic blocks to make layout and state transitions obvious. A later reviewer should repeat with a larger collection of real photos, long filenames and mixed photographic subjects to evaluate crop decisions and library scanning. Phone-specific polish remains deferred. The app continues to load its existing Tailwind/Sortable/font dependencies from CDNs.
 
 Final browser check after push: invalid Custom width + Download All displayed "Correct the custom width and height before downloading" and focused the width field; corrected to 6 inches and restored preset. Updated after-invalid-dimensions.jpg captures this export guard. Browser viewport override reset; editor left open for inspection.
+
+## Iteration 2: sizing and image framing (2026-10-05)
+
+Recorded before implementation:
+
+| ID | Evidence / usability problem | Intended improvement | Status |
+| --- | --- | --- | --- |
+| UI-15 | Output/custom dimensions use inches; spacing and border use pixels. DPI changes alter physical border widths; no coherent conversion or pixel output summary. before-crop-controls.jpg. | One unit preference (mm / inches / pixels) controls all lengths, converts values without changing composition, and shows export pixels/DPI separately. Physical spacing scales with DPI and preview. | Recorded |
+| UI-16 | Shared horizontal/vertical crop focus dropdowns move both images. No independent zoom, interactive positioning or safe cancel/reset. | Per-photo framing dialog: live frame, drag image, zoom, position controls, rotate, reset, Apply/Cancel; each photo retains independent adjustments in preview/export. | Recorded |
+| UI-17 | Source processing auto-rotates even manual rotations; Fit mode auto-rotates despite documentation. User cannot reliably predict orientation. | Explicit per-photo orientation; new UI photos never rotate automatically; maintain legacy API defaults. | Recorded |
+| UI-18 | Size/custom drafts and orientation are indirect: custom fields don't represent portrait output width/height. Changing units or DPI could discard invalid drafts. | Always-visible output width/height in selected units, directly representing final orientation. Validate and preserve draft, output summary, readable preset names, clear DPI consequences. | Recorded |
+| UI-19 | Preview scales output DPI down but leaves pixel gaps/borders unchanged. Preview may disagree with final printed composition. | Scale legacy pixel spacing at preview DPI cap and support physical spacing consistently in both paths; verify preview/export geometry. | Recorded |
+
+- UI-20 (recorded during iteration-2 verification): the added measurement/framing controls make the right panel taller and push tray navigation off screen; modal select inherits flex-grow and becomes oversized. Fix: keep desktop workspace and pair tray in the viewport, independently scroll the settings/library, and give modal form controls a fixed height.
+- UI-21 (recorded during iteration-2 verification): clicking an already-placed photo still asks for a library selection, while the adjustment button can be below the fold in the settings panel. Fix: click a placed photo directly to frame it; selecting a library image still makes the click replace that slot. Make canvas instructions/accessible names match the current action.
+
+### Iteration-2 implementation and verification
+
+UI-15 through UI-21 implemented; mobile remains deferred.
+
+- A single saved unit preference converts all editable lengths. Canonical dimensions/spacing remain physical values; exported pixels are identified separately. Verified mm → inches → pixels → mm conversion without a composition change. 152.4 × 101.6 mm at 300 DPI is 1800 × 1200 pixels; physical-mode 600 DPI doubles those pixels and retains 3 mm spacing. Pixel-mode DPI changes retain pixel dimensions/spacing and change print size. Blank dimensions prevent unit switching and export rather than discarding the draft.
+- Width and height now show final orientation directly. Units also appear in accessible names for output dimensions, spacing and border. Pixel summary no longer repeats itself.
+- Photo framing is independent: Fill zoom 100–400%; Fit size 10–100%; horizontal/vertical positioning; mouse dragging, arrow-key movement (Shift for larger steps), clockwise rotation, reset, Apply and Cancel. Controls that cannot move a photo at the current scale are disabled. New UI photos never auto-rotate. Shared crop dropdowns removed.
+- Cancel at 400%/edge position reopened at the unchanged 100%/center. Drag moved horizontal position to 33%; ArrowLeft moved to 34% (the photo itself moves left). Apply updated only photo 1. Photo 2 independently used Fit at 91%; rotation/reset and alignment were exercised. Click on a placed canvas photo opens the same dialog directly; selecting a library photo changes the click to replacement.
+- Live draft previews use a bounded, EXIF-corrected source and third guides; preview/export use each photo's own mode, zoom, rotation and position. Final browser ZIP exported 250% crop on photo 1 and 91% Fit on photo 2; visually inspected the downloaded JPEG against the canvas and dialog. Evidence: framing-crop-editor.jpg, framing-fit-editor.jpg, units-framing-workspace.jpg, units-framing-export.jpg.
+- Export at 300 DPI with 3 mm spacing and 5 mm outer border produced 1800 × 1200 pixels with 300 DPI metadata; sampled the white border/gap and the fitted photo's padding. Legacy pixel spacing now scales when preview resolution is capped, and physical spacing scales at both preview/export resolutions.
+- Desktop workspace keeps header/tray visible, independently scrolls side panels and sizes the canvas to actual available height (including feedback banners). Requested 1024 × 768 maps to 1138 × 853 CSS pixels under the host's display scaling. The page matched that viewport; canvas bottom 643px and tray bottom 853px remained visible. Evidence: units-laptop-workspace.jpg.
+- Automated verification: 49 pytest tests passed; measurement conversion/validation assertions passed for inches/mm/pixels across 72/150/300/600 DPI; JS syntax checks passed. New tests cover physical/legacy preview scaling, independent crop/zoom preview versus export, fitted resizing/positioning, manual rotation, invalid adjustments, and EXIF-correct source loading.
+
+### Next exploration
+
+- UI-22 (recorded, not yet fixed): Auto Pair replaces manually curated pairs and framing with no undo. Placement/removal/deletion also lack recovery. Investigate preserving per-photo adjustments through auto-pair and a practical Undo/Redo workflow before considering the broader UX iteration complete.

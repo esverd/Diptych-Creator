@@ -13,7 +13,7 @@
     <!-- Use a relative path to load the compiled CSS when served from the filesystem.
          We avoid Flask's `url_for` helper here because this file may be opened directly
          from disk during development, in which case Jinja templating won't run. -->
-    <link rel="stylesheet" href="../static/css/style.css?v=20261005">
+    <link rel="stylesheet" href="../static/css/style.css?v=20261005b">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body class="bg-white text-[var(--text-primary)]" style="font-family: Manrope, 'Noto Sans', sans-serif;">
@@ -94,10 +94,11 @@
 
             <aside id="right-panel" class="w-full md:w-72 border-t md:border-t-0 md:border-l border-[var(--accent-color)] p-4 space-y-6 hidden md:block">
                 <div>
-                    <h3 class="config-heading">Layout</h3>
+                    <h3 class="config-heading">Output &amp; layout</h3>
+                    <div class="unit-control"><label for="measurement-unit">Units for all lengths</label><select id="measurement-unit"><option value="mm">Millimeters</option><option value="in" selected>Inches</option><option value="px">Pixels</option></select></div>
                     <div class="space-y-3">
                         <div>
-                            <label class="config-label" for="output-size">Output Size (inches)</label>
+                            <label class="config-label" for="output-size">Size preset</label>
                             <div class="flex gap-2">
                                 <select class="form-input-custom flex-grow" id="output-size" name="output-size">
                                     <option value="10x8">10 x 8</option>
@@ -109,74 +110,55 @@
                                 <button id="orientation-btn" class="icon-btn shrink-0" aria-label="Toggle orientation"></button>
                             </div>
                         </div>
-                        <div id="custom-dim-container" class="hidden">
-                            <label id="custom-dim-label" class="config-label" for="custom-width">Custom Dimensions</label>
+                        <div id="custom-dim-container">
+                            <label id="custom-dim-label" class="config-label">Output width × height <span class="length-unit">in</span></label>
                             <div class="flex gap-2 items-center">
-                                <input type="number" aria-label="Custom width in inches" id="custom-width" class="form-input-custom !h-9 text-center" placeholder="Width" min="1" step="0.1">
+                                <input type="number" aria-label="Output width" id="custom-width" class="form-input-custom !h-9 text-center" placeholder="Width" min="0.01" step="any">
                                 <span class="text-gray-400">x</span>
-                                <input type="number" aria-label="Custom height in inches" id="custom-height" class="form-input-custom !h-9 text-center" placeholder="Height" min="1" step="0.1">
-                            </div><p id="dimension-error" class="field-error hidden" role="status">Enter a width and height of at least 1 inch.</p>
+                                <input type="number" aria-label="Output height" id="custom-height" class="form-input-custom !h-9 text-center" placeholder="Height" min="0.01" step="any">
+                            </div><p id="dimension-error" class="field-error hidden" role="status">Enter positive output dimensions.</p>
                         </div>
                         <div>
-                            <label class="config-label" for="output-dpi">Resolution (DPI)</label>
+                            <label class="config-label" for="output-dpi">Export resolution (DPI)</label>
                             <select class="form-input-custom" id="output-dpi" name="output-dpi">
                                 <option value="72">72 DPI (Web/Screen)</option>
                                 <option value="150">150 DPI (High-Res Screen)</option>
                                 <option value="300">300 DPI (Print)</option>
                                 <option value="600">600 DPI (Archival)</option>
-                            </select>
+                            </select><p id="resolution-help" class="control-help">DPI changes pixel resolution, keeping the print size.</p>
                         </div>
                         <div>
-                            <label class="config-label" for="image-fitting">Image Fitting</label>
+                            <label class="config-label" for="image-fitting">Default photo framing</label>
                             <select class="form-input-custom" id="image-fitting" name="image-fitting">
-                                <option value="fill">Crop / Fill</option>
-                                <option value="fit">Fit (No Crop)</option>
-                            </select>
+                                <option value="fill">Fill frame (crop)</option>
+                                <option value="fit">Fit whole photo</option>
+                            </select><p class="control-help">Individually adjusted photos keep their own framing.</p>
                         </div>
                         <div>
                             <div class="flex items-center justify-between">
-                                <label class="config-label" for="border-size">Image Spacing</label>
-                                <p id="border-size-value" class="text-xs text-[var(--text-secondary)]">0 px</p>
+                                <label class="config-label" for="border-size">Space between photos</label>
+                                <p id="border-size-value" class="text-xs text-[var(--text-secondary)]">in</p>
                             </div>
-                            <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="border-size" max="100" min="0" name="border-size" type="range" value="20"/>
+                            <input class="form-input-custom" id="border-size" min="0" step="any" type="number" value="0.067">
                         </div>
                         <details id="advanced-options" class="space-y-3">
-                            <summary class="config-heading cursor-pointer select-none">More Options</summary>
+                            <summary class="config-heading cursor-pointer select-none">Border &amp; background</summary>
                             <div>
                                 <div class="flex items-center justify-between">
-                                    <label class="config-label" for="outer-border-size">Outer Border Size</label>
-                                    <p id="outer-border-size-value" class="text-xs text-[var(--text-secondary)]">0 px</p>
+                                    <label class="config-label" for="outer-border-size">Outer border</label>
+                                    <p id="outer-border-size-value" class="text-xs text-[var(--text-secondary)]">in</p>
                                 </div>
-                                <input class="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] mt-1" id="outer-border-size" max="100" min="0" name="outer-border-size" type="range" value="20"/>
+                                <input class="form-input-custom" id="outer-border-size" min="0" step="any" type="number" value="0.067">
                             </div>
                             <div>
                                 <label class="config-label" for="border-color">Border Color</label>
                                 <input type="color" id="border-color" name="border-color" value="#ffffff" class="form-input-custom" style="width: 3rem; height: 2rem; padding: 0; border-radius: 0.5rem;">
                             </div>
-                            <!-- Crop focus controls allow users to choose which part of the image
-                                 is preserved when cropping.  Horizontal (left, center, right) and
-                                 vertical (top, center, bottom) positions map to 0.0, 0.5 and 1.0
-                                 respectively. -->
-                            <div>
-                                <label class="config-label" for="crop-focus-h">Crop Focus</label>
-                                <div class="flex gap-2 mt-1">
-                                    <select id="crop-focus-h" name="crop-focus-h" aria-label="Horizontal crop focus" class="form-input-custom flex-1">
-                                        <option value="0">Left</option>
-                                        <option value="0.5" selected>Center</option>
-                                        <option value="1">Right</option>
-                                    </select>
-                                    <select id="crop-focus-v" name="crop-focus-v" aria-label="Vertical crop focus" class="form-input-custom flex-1">
-                                        <option value="0">Top</option>
-                                        <option value="0.5" selected>Center</option>
-                                        <option value="1">Bottom</option>
-                                    </select>
-                                </div>
-                            </div>
                         </details>
                     </div>
                 </div>
                 <div id="image-1-controls" class="hidden">
-                    <h3 class="config-heading">Image 1</h3>
+                    <h3 class="config-heading">Photo 1</h3><p id="image-1-name" class="photo-name"></p><button type="button" data-slot="1" class="btn-frame btn btn-secondary w-full" aria-label="Adjust photo 1">Crop, position &amp; resize</button><p id="image-1-summary" class="control-help"></p>
                     <div class="flex gap-2">
                         <button data-slot="1" class="btn-rotate btn btn-secondary flex-1 text-xs" aria-label="Rotate Image 1" title="Rotate Image 1">
                             <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
@@ -189,7 +171,7 @@
                     </div>
                 </div>
                 <div id="image-2-controls" class="hidden">
-                    <h3 class="config-heading">Image 2</h3>
+                    <h3 class="config-heading">Photo 2</h3><p id="image-2-name" class="photo-name"></p><button type="button" data-slot="2" class="btn-frame btn btn-secondary w-full" aria-label="Adjust photo 2">Crop, position &amp; resize</button><p id="image-2-summary" class="control-help"></p>
                     <div class="flex gap-2">
                         <button data-slot="2" class="btn-rotate btn btn-secondary flex-1 text-xs" aria-label="Rotate Image 2" title="Rotate Image 2">
                             <svg class="mr-1.5" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="14"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
@@ -230,7 +212,20 @@
                 </div>
             </div>
         </div>
+    <dialog id="framing-dialog" aria-labelledby="framing-title">
+        <div class="framing-header"><div><p class="eyebrow">PHOTO FRAMING</p><h2 id="framing-title">Adjust photo</h2><p id="framing-filename"></p></div><button id="framing-close" class="icon-btn" aria-label="Cancel photo adjustments">×</button></div>
+        <div class="framing-body"><div class="framing-workspace"><div id="framing-stage"><canvas id="framing-canvas" tabindex="0" role="img" aria-label="Photo frame. Drag to reposition, or use arrow keys."></canvas></div><p id="framing-help" class="control-help">Drag the photo to reposition it. Arrow keys move it precisely.</p><p id="framing-error" class="field-error hidden" role="status"></p></div>
+        <div class="framing-options">
+            <label class="config-label" for="framing-mode">Framing</label><select id="framing-mode" class="form-input-custom"><option value="fill">Fill frame (crop)</option><option value="fit">Fit whole photo</option></select>
+            <div class="range-heading"><label for="framing-zoom">Photo size</label><output id="framing-zoom-value"></output></div><input id="framing-zoom" type="range" min="1" max="4" step="0.01" value="1"><p class="control-help" id="framing-size-help">100% fills the frame. Zoom in to crop closer.</p>
+            <div class="range-heading"><label for="framing-x">Horizontal position</label><output id="framing-x-value"></output></div><input id="framing-x" type="range" min="0" max="1" step="0.01" value="0.5">
+            <div class="range-heading"><label for="framing-y">Vertical position</label><output id="framing-y-value"></output></div><input id="framing-y" type="range" min="0" max="1" step="0.01" value="0.5">
+            <button id="framing-rotate" class="btn btn-secondary">Rotate 90° clockwise</button><button id="framing-reset" class="btn btn-secondary">Reset framing</button>
+        </div></div>
+        <div class="framing-footer"><span>Applies to this photo only.</span><button id="framing-cancel" class="btn btn-secondary">Cancel</button><button id="framing-apply" class="btn btn-primary">Apply adjustments</button></div>
+    </dialog>
+    <script src="../static/js/measurements.js?v=20261005b"></script>
     <!-- Use a relative path for the app script when the file is opened locally. -->
-    <script src="../static/js/app.js?v=20261005"></script>
+    <script src="../static/js/app.js?v=20261005b"></script>
 </body>
 </html>

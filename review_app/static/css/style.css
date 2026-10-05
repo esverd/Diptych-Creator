@@ -543,3 +543,47 @@ details[open] > div { margin-top: 16px; }
     #main-canvas { width: min(100%, calc((100dvh - 300px) * var(--canvas-ratio, 1.5))); }
 }
 .diptych-tray-preview { color: var(--text-secondary); font-size: 12px; }
+
+/* Consistent measurements and focused photo adjustments. */
+.unit-control { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border-color); }
+.unit-control label { font-size: 12px; font-weight: 600; }
+.unit-control select { font-size: 12px; border-radius: 6px; border-color: var(--border-color); max-width: 120px; padding: 6px; }
+.control-help { font-size: 11px; color: var(--text-secondary); line-height: 1.6; margin: 8px 0; }
+.photo-name { font-size: 12px; color: var(--text-secondary); overflow-wrap: anywhere; margin-bottom: 10px; }
+#custom-dim-container .length-unit { color: var(--text-secondary); font-weight: 400; }
+#output-summary { max-width: 320px; }
+#framing-dialog { width: min(1000px, calc(100vw - 48px)); max-height: calc(100dvh - 48px); margin: auto; padding: 0; color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 14px; box-shadow: 0 24px 100px #15282150; overflow-y: auto; }
+#framing-dialog::backdrop { background: #17292290; backdrop-filter: blur(4px); }
+.framing-header { display: flex; justify-content: space-between; gap: 20px; padding: 22px 26px; border-bottom: 1px solid var(--border-color); }
+#framing-title { font-size: 24px; font-weight: 700; }
+#framing-filename { font-size: 12px; color: var(--text-secondary); overflow-wrap: anywhere; margin-top: 6px; }
+.framing-body { display: grid; grid-template-columns: minmax(0, 1fr) 245px; }
+.framing-workspace { min-width: 0; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #eef2ed; }
+#framing-stage { width: 100%; max-width: 650px; max-height: 480px; display: flex; align-items: center; justify-content: center; }
+#framing-canvas { display: block; max-width: 100%; max-height: 480px; width: auto; height: auto; box-shadow: 0 6px 24px #20312520; touch-action: none; }
+#framing-canvas.can-pan { cursor: grab; }
+#framing-canvas.can-pan:active { cursor: grabbing; }
+.framing-options { padding: 24px; display: flex; flex-direction: column; gap: 12px; background: white; border-left: 1px solid var(--border-color); }
+.range-heading { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; }
+.range-heading output { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.framing-options .control-help { margin: 0 0 8px; }
+.framing-options input[type=range] { width: 100%; accent-color: var(--primary-color); min-height: 22px; }
+.framing-footer { padding: 18px 26px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; align-items: center; gap: 12px; background: white; }
+.framing-footer > span { margin-right: auto; color: var(--text-secondary); font-size: 12px; }
+@media (max-height: 800px) and (min-width: 900px) { #framing-canvas, #framing-stage { max-height: 340px; } .framing-header { padding: 14px 24px; } .framing-options { gap: 7px; padding: 16px 24px; } }
+@media (max-width: 899px) { .framing-body { grid-template-columns: 1fr; } .framing-footer { flex-wrap: wrap; } }
+.framing-options .form-input-custom { flex: 0 0 42px; height: 42px; }
+input.form-input-custom { border: 1px solid var(--border-color); border-radius: 8px; background-color: white; padding: 8px 10px; font-size: 13px; }
+@media (min-width: 900px) {
+    body { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+    #status-banner { flex-shrink: 0; }
+    #app-container { height: auto; min-height: 0; flex: 1; overflow: hidden; }
+    #app-container > header, #bottom-bar { flex-shrink: 0; }
+    #app-container main { min-height: 0; overflow: hidden; flex: 1; }
+    #left-panel, #right-panel { overflow-y: auto; min-height: 0; }
+    .workspace-preview { padding: 22px 28px; min-height: 0; }
+    #main-canvas { width: min(100%, calc((100dvh - 330px) * var(--canvas-ratio, 1.5))); flex-shrink: 0; }
+    .workspace-heading { margin-bottom: 18px; }
+    #bottom-bar { padding: 8px 24px; }
+}
+@media (min-width: 900px) { #main-canvas { width: min(100%, calc(var(--available-canvas-height, calc(100dvh - 330px)) * var(--canvas-ratio, 1.5))); } }
