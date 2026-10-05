@@ -618,3 +618,14 @@ input.form-input-custom { border: 1px solid var(--border-color); border-radius: 
 #selection-name { display: block; font-size: 12px; overflow-wrap: anywhere; margin-bottom: 8px; }
 #selection-bar > div { display: flex; gap: 8px; flex-wrap: wrap; }
 #selection-bar .btn { min-height: 32px; font-size: 12px; padding: 6px 10px; }
+.workspace-save-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; font-size: 10px; margin-top: 12px; color: var(--text-secondary); }
+#new-workspace-btn { color: var(--primary-color); text-decoration: underline; text-underline-offset: 2px; }
+.save-error, .missing-photo { color: #a12d22; }
+.drop-zone.slot-missing { background: #fff3e8; }
+#new-workspace-dialog { margin: auto; width: min(450px, calc(100vw - 40px)); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; color: var(--text-primary); }
+#new-workspace-dialog::backdrop { background: #17292280; }
+#new-workspace-dialog h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+#new-workspace-dialog p { font-size: 13px; line-height: 1.7; margin-bottom: 22px; }
+#new-workspace-dialog > div { display: flex; justify-content: flex-end; gap: 10px; }
+.previous-workspace { font-size: 10px; color: var(--primary-color); text-decoration: underline; text-underline-offset: 2px; margin-top: 8px !important; }
+#available-images-section[hidden] + #used-images-section { margin-top: 0; }

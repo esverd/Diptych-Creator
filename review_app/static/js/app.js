@@ -23,11 +23,16 @@ const DiptychApp = (() => {
     const PREVIEW_DEBOUNCE_DELAY = 300;
     const history = EditHistory.create();
     let historyReady = false;
+    let workspaceReady = false;
+    let relinkPath = null;
+    let loadingFocus = null;
+    const relinkAliases = new Map();
     let editGesture = 0;
     const snapshot = () => JSON.parse(JSON.stringify({diptychs: appState.diptychs, activeDiptychIndex: appState.activeDiptychIndex}));
     function recordEdit(before, label, group = null) {
         if (historyReady) history.record(before, snapshot(), label, group);
         updateHistoryControls();
+        saveWorkspace();
     }
     function updateHistoryControls() {
         for (const action of ['undo', 'redo']) {
@@ -38,13 +43,118 @@ const DiptychApp = (() => {
         }
     }
     function restoreEdit(action) {
-        if (framingDialog.open || !loadingOverlay.classList.contains('hidden')) return;
+        if (framingDialog.open || document.getElementById('new-workspace-dialog').open || !loadingOverlay.classList.contains('hidden')) return;
         const restored = history[action]();
         if (!restored) return;
+        restored.diptychs.forEach(pair => [pair.image1,pair.image2].filter(Boolean).forEach(image => {
+            const seen = new Set();
+            while (relinkAliases.has(image.path) && !seen.has(image.path)) { seen.add(image.path); image.path = relinkAliases.get(image.path); }
+        }));
         Object.assign(appState, restored, {selectedImagePath: null});
         appState.previewRequestSeq++;
         renderImagePool(); renderDiptychTray(); renderActiveDiptychUI();
         requestPreviewRefresh(); persistDiptychOrder(); saveSettings(); updateHistoryControls();
+    }
+
+    const isMissing = path => Boolean(path && appState.images.find(image => image.path === path)?.missing);
+    function saveWorkspace() {
+        if (!workspaceReady) return;
+        const indicator = document.getElementById('workspace-save-status');
+        try {
+            localStorage.setItem('diptychWorkspace', Workspace.serialize(appState));
+            indicator.textContent = 'Saved on this device';
+            indicator.classList.remove('save-error');
+            document.getElementById('previous-workspace-btn').hidden = !localStorage.getItem('diptychWorkspaceBackup');
+        } catch (error) {
+            indicator.textContent = 'Not saved - browser storage unavailable';
+            indicator.classList.add('save-error');
+        }
+    }
+    async function restoreWorkspace(key = 'diptychWorkspace') {
+        let raw;
+        try {
+            document.getElementById('restore-workspace-btn').hidden = !localStorage.getItem('diptychWorkspaceBackup');
+            raw = localStorage.getItem(key);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (!Array.isArray(data?.images) || data.images.length > 2000) throw new Error('Invalid saved workspace');
+            Workspace.read(raw, new Set(data.images.map(image => image?.path)), appState.diptychs[appState.activeDiptychIndex].config);
+            showLoading('Restoring workspace...');
+            const response = await fetch('/workspace_images', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:data.images.map(image=>image.path)})});
+            if (!response.ok) throw new Error('Saved photos could not be checked');
+            const result = await response.json();
+            const restored = Workspace.read(raw, new Set(result.available), appState.diptychs[appState.activeDiptychIndex].config);
+            Object.assign(appState,restored,{selectedImagePath:null});
+            document.getElementById('library-search').value = appState.libraryQuery;
+            renderImagePool(); renderDiptychTray(); renderActiveDiptychUI();
+            if (appState.images.length) showAppContainer();
+            requestPreviewRefresh();
+            const missing = appState.images.filter(image=>image.missing).length;
+            if (missing) showStatus(`${missing} saved photo${missing===1?' is':'s are'} missing. Relink ${missing===1?'it':'them'} in the library to restore ${missing===1?'its':'their'} framing.`, 'warning');
+            else if (appState.images.length) showStatus('Workspace restored. Your photos and adjustments are ready.');
+        } catch (error) {
+            // Keep the source untouched if recovery fails or the server is unavailable.
+            workspaceReady = false;
+            document.getElementById('workspace-save-status').textContent = 'Recovery failed - saved workspace retained';
+            showStatus(`Workspace could not be restored: ${error.message}. Reload to try again.`, 'warning');
+            return false;
+        } finally {
+            hideLoading();
+        }
+        return true;
+    }
+    async function restorePreviousWorkspace(keepCurrent) {
+        const current = Workspace.serialize(appState);
+        const restored = await restoreWorkspace('diptychWorkspaceBackup');
+        if (restored === false) return;
+        try {
+            if (keepCurrent) localStorage.setItem('diptychWorkspaceBackup', current);
+            workspaceReady = true;
+            history.clear(); relinkAliases.clear(); updateHistoryControls(); saveWorkspace();
+        } catch (error) {
+            workspaceReady = false;
+            showStatus('The previous workspace opened, but this switch could not be saved. Reload to return to the saved workspace.', 'warning');
+        }
+    }
+    function startNewWorkspace() {
+        try {
+            localStorage.setItem('diptychWorkspaceBackup', !workspaceReady && localStorage.getItem('diptychWorkspace') || Workspace.serialize(appState));
+        } catch (error) {
+            showStatus('Cannot start a new workspace because the current one could not be backed up.', 'error');
+            return;
+        }
+        document.getElementById('new-workspace-dialog').close();
+        const config = {...appState.diptychs[appState.activeDiptychIndex].config};
+        history.clear(); relinkAliases.clear();
+        Object.assign(appState,{images:[],diptychs:[{image1:null,image2:null,config}],activeDiptychIndex:0,selectedImagePath:null,libraryQuery:'',libraryFilter:'all'});
+        document.getElementById('library-search').value = '';
+        appState.previewRequestSeq++;
+        renderImagePool(); renderDiptychTray(); renderActiveDiptychUI(); updateHistoryControls(); hideStatus();
+        welcomeScreen.classList.remove('hidden'); appContainer.classList.add('hidden');
+        document.getElementById('restore-workspace-btn').hidden = false;
+        workspaceReady = true; saveWorkspace(); persistDiptychOrder();
+        selectImagesBtn.focus();
+    }
+    async function relinkPhoto(event) {
+        const file = event.target.files[0], oldPath = relinkPath;
+        if (!file || !oldPath) return;
+        showLoading('Relinking photo...');
+        try {
+            const data = new FormData(); data.append('files[]',file);
+            const response = await fetch('/upload_images',{method:'POST',body:data});
+            const result = await response.json();
+            const path = result.uploaded?.[0];
+            if (!response.ok || !path) throw new Error(result.error || 'Choose a readable photo');
+            const entry = appState.images.find(image=>image.path===oldPath);
+            if (!entry) return;
+            entry.path = path; entry.missing = false;
+            appState.diptychs.forEach(pair => [pair.image1,pair.image2].filter(Boolean).forEach(image => { if (image.path===oldPath) image.path=path; }));
+            if (oldPath !== path) relinkAliases.set(oldPath,path);
+            appState.selectedImagePath=null;
+            renderImagePool(); renderDiptychTray(); renderActiveDiptychUI(); requestPreviewRefresh(); saveWorkspace(); persistDiptychOrder();
+            showStatus('Photo relinked. Its framing and rotation have been retained.');
+        } catch (error) { showStatus(`Photo could not be relinked: ${error.message}`, 'error'); }
+        finally { hideLoading(); event.target.value=''; relinkPath=null; }
     }
 
     // --- ELEMENT SELECTORS ---
@@ -91,19 +201,22 @@ const DiptychApp = (() => {
     const statusMessage = document.getElementById('status-message');
     const statusCloseBtn = document.getElementById('status-close');
     // --- INITIALIZATION ---
-    function init() {
+    async function init() {
         addEventListeners();
         addNewDiptych();
         loadSavedSettings();
         initializeDragAndDrop();
         updateMobileMenuIcon();
         initializeFraming();
+        workspaceReady = (await restoreWorkspace()) !== false;
         historyReady = true;
+        saveWorkspace();
         updateHistoryControls();
         const canvasSizer = new ResizeObserver(fitCanvasToWorkspace);
         canvasSizer.observe(document.getElementById('preview-panel'));
         canvasSizer.observe(document.querySelector('.workspace-heading'));
         canvasSizer.observe(document.getElementById('selection-bar'));
+        new ResizeObserver(keepActivePairVisible).observe(diptychTray);
     }
 
     // --- EVENT LISTENERS ---
@@ -119,14 +232,21 @@ const DiptychApp = (() => {
                 restoreEdit(key === 'y' || event.shiftKey ? 'redo' : 'undo');
             }
         });
+        document.getElementById('relink-uploader').addEventListener('change', relinkPhoto);
+        const newDialog = document.getElementById('new-workspace-dialog');
+        document.getElementById('new-workspace-btn').addEventListener('click', () => newDialog.showModal());
+        document.getElementById('new-workspace-cancel').addEventListener('click', () => newDialog.close());
+        document.getElementById('new-workspace-confirm').addEventListener('click', startNewWorkspace);
+        document.getElementById('restore-workspace-btn').addEventListener('click', () => restorePreviousWorkspace(false));
+        document.getElementById('previous-workspace-btn').addEventListener('click', () => restorePreviousWorkspace(true));
         document.getElementById('library-search').addEventListener('input', event => {
-            appState.libraryQuery = event.target.value; renderImagePool();
+            appState.libraryQuery = event.target.value; renderImagePool(); saveWorkspace();
         });
         document.getElementById('library-clear').addEventListener('click', () => {
-            appState.libraryQuery = ''; document.getElementById('library-search').value = ''; renderImagePool(); document.getElementById('library-search').focus();
+            appState.libraryQuery = ''; document.getElementById('library-search').value = ''; renderImagePool(); saveWorkspace(); document.getElementById('library-search').focus();
         });
         document.querySelectorAll('.library-filters button').forEach(button => button.addEventListener('click', () => {
-            appState.libraryFilter = button.dataset.filter; renderImagePool();
+            appState.libraryFilter = button.dataset.filter; renderImagePool(); saveWorkspace();
         }));
         document.getElementById('cancel-selection').addEventListener('click', clearSelection);
         [1, 2].forEach(slot => document.getElementById(`place-slot-${slot}`).addEventListener('click', () => placeImage(appState.selectedImagePath, slot)));
@@ -141,7 +261,7 @@ const DiptychApp = (() => {
         downloadBtn.addEventListener('click', generateDiptychs);
         autoPairBtn.addEventListener('click', autoPairImages);
         document.getElementById('tab-preview').addEventListener('click', () => toggleMobileTab('preview'));
-        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !framingDialog.open) { clearSelection(); toggleMobileTab('preview'); } });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !framingDialog.open && !document.getElementById('new-workspace-dialog').open) { clearSelection(); toggleMobileTab('preview'); } });
         document.querySelectorAll('.drop-zone').forEach(zone => zone.addEventListener('click', () => {
             const placed = appState.diptychs[appState.activeDiptychIndex]?.[`image${zone.dataset.slot}`];
             if (placed && !appState.selectedImagePath) openFraming(zone.dataset.slot);
@@ -298,6 +418,7 @@ const DiptychApp = (() => {
             });
             renderImagePool();
             showAppContainer();
+            saveWorkspace();
         } catch (error) {
             console.error('Upload failed:', error);
             showStatus(`Upload failed: ${error.message}`, 'error');
@@ -332,6 +453,7 @@ const DiptychApp = (() => {
             renderDiptychTray();
             renderActiveDiptychUI();
             requestPreviewRefresh();
+            saveWorkspace();
         }
     }
 
@@ -355,6 +477,7 @@ const DiptychApp = (() => {
 
     async function autoPairImages() {
         if (appState.images.length === 0) return;
+        if (appState.images.some(image => image.missing)) { showStatus('Relink missing photos before using Auto Pair.', 'warning'); return; }
         const before = snapshot();
         showLoading('Pairing images...');
         try {
@@ -412,6 +535,7 @@ const DiptychApp = (() => {
     }
 
     function saveSettings() {
+        saveWorkspace();
         try {
             const config = appState.diptychs[appState.activeDiptychIndex]?.config;
             if (!config) return;
@@ -491,6 +615,7 @@ const DiptychApp = (() => {
 
     function serializeDiptych(diptych) {
         const payload = JSON.parse(JSON.stringify(diptych));
+        ['image1','image2'].forEach(key => { if (isMissing(payload[key]?.path)) payload[key] = null; });
         [payload.image1, payload.image2].filter(Boolean).forEach(image => {
             image.crop_focus ??= diptych.config.crop_focus || [0.5, 0.5];
             image.auto_rotate = false;
@@ -583,8 +708,12 @@ const DiptychApp = (() => {
         const usedImages = allUsed.filter(matches);
         unpairedCount.textContent = allUnused.length;
         usedCount.textContent = allUsed.length;
-        const showUnused = appState.libraryFilter !== 'placed';
-        const showUsed = appState.libraryFilter !== 'available';
+        let showUnused = appState.libraryFilter !== 'placed';
+        let showUsed = appState.libraryFilter !== 'available';
+        if (appState.libraryFilter === 'all') {
+            showUnused = unusedImages.length > 0 || usedImages.length === 0;
+            showUsed = usedImages.length > 0;
+        }
         document.getElementById('available-images-section').hidden = !showUnused;
         document.getElementById('library-clear').hidden = !query;
         document.querySelectorAll('.library-filters button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === appState.libraryFilter)));
@@ -614,7 +743,8 @@ const DiptychApp = (() => {
             // impairments when navigating the image pool.
             const baseName = imgData.path.split(/[/\\]/).pop();
             imgEl.alt = baseName;
-            imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}`;
+            if (!imgData.missing) imgEl.src = `/thumbnail/${encodeURIComponent(imgData.path)}`;
+            else { thumbContainer.classList.remove('thumbnail-loading'); thumbContainer.classList.add('thumbnail-error'); imgEl.alt = 'Missing photo'; }
             imgEl.onload = () => { imgEl.classList.add('loaded'); thumbContainer.classList.remove('thumbnail-loading'); };
             imgEl.onerror = () => { thumbContainer.classList.remove('thumbnail-loading'); thumbContainer.classList.add('thumbnail-error'); imgEl.alt = `Preview unavailable: ${baseName}`; };
             const filenameDiv = document.createElement('div');
@@ -622,6 +752,11 @@ const DiptychApp = (() => {
             filenameDiv.textContent = imgData.path;
             thumbContainer.append(imgEl, filenameDiv);
             const card = document.createElement('div'); card.className = 'library-card'; card.append(thumbContainer);
+            if (imgData.missing) {
+                const relink = document.createElement('button'); relink.className = 'photo-location missing-photo'; relink.type = 'button'; relink.textContent = 'Missing - relink photo';
+                relink.setAttribute('aria-label', `Relink ${imgData.path}`);
+                relink.addEventListener('click', () => { relinkPath = imgData.path; document.getElementById('relink-uploader').click(); }); card.append(relink);
+            }
             const pairIndex = appState.diptychs.findIndex(pair => [pair.image1?.path, pair.image2?.path].includes(imgData.path));
             if (pairIndex !== -1) {
                 const slot = appState.diptychs[pairIndex].image1?.path === imgData.path ? 1 : 2;
@@ -662,6 +797,7 @@ const DiptychApp = (() => {
                         }
                     });
                     appState.images = newImages;
+                    saveWorkspace();
                     // Re-render image pools to reflect new order
                     renderImagePool();
                 }
@@ -693,10 +829,12 @@ const DiptychApp = (() => {
             option.textContent = `${Measurements.display(w, unit, config.dpi)} × ${Measurements.display(h, unit, config.dpi)} ${unit}${w === h ? ' (square)' : ''}`;
         }
         document.querySelectorAll('.drop-zone').forEach(zone => {
-            const filled = Boolean(activeDiptych[`image${zone.dataset.slot}`]);
+            const missing = isMissing(activeDiptych[`image${zone.dataset.slot}`]?.path);
+            const filled = Boolean(activeDiptych[`image${zone.dataset.slot}`]) && !missing;
+            zone.classList.toggle('slot-missing', missing);
             zone.classList.toggle('slot-filled', filled);
             zone.setAttribute('aria-label', filled && !appState.selectedImagePath ? `Adjust photo ${zone.dataset.slot} in preview` : `${filled ? 'Replace' : 'Place selected image in'} slot ${zone.dataset.slot}`);
-            zone.querySelector('span > span').textContent = filled ? (appState.selectedImagePath ? 'Click to replace this photo' : 'Click to crop, position or resize') : 'Select an image, then place it here';
+            zone.querySelector('span > span').textContent = missing ? 'Missing photo - relink in the library' : filled ? (appState.selectedImagePath ? 'Click to replace this photo' : 'Click to crop, position or resize') : 'Select an image, then place it here';
         });
         updateCanvasAspectRatio(config);
         const preset = Array.from(outputSizeSelect.options).find(option => {
@@ -799,6 +937,15 @@ const DiptychApp = (() => {
                 }
             });
         }
+        requestAnimationFrame(keepActivePairVisible);
+    }
+
+    function keepActivePairVisible() {
+        const active = diptychTray.querySelector('.diptych-tray-preview.active');
+        if (!active || !diptychTray.clientWidth) return;
+        const frame = diptychTray.getBoundingClientRect(), card = active.getBoundingClientRect();
+        if (card.left < frame.left + 12) diptychTray.scrollLeft -= frame.left + 12 - card.left;
+        else if (card.right > frame.right - 12) diptychTray.scrollLeft += card.right - frame.right + 12;
     }
 
     function updateActiveTrayPreview() {
@@ -810,6 +957,7 @@ const DiptychApp = (() => {
     }
 
     async function persistDiptychOrder() {
+        saveWorkspace();
         try {
             const order = appState.diptychs.map(d => ({
                 image1: d.image1 ? d.image1.path : null,
@@ -864,7 +1012,7 @@ const DiptychApp = (() => {
     async function refreshWysiwygPreview() {
         const requestSeq = ++appState.previewRequestSeq;
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
-        if (!activeDiptych || (!activeDiptych.image1 && !activeDiptych.image2)) {
+        if (!activeDiptych || ![activeDiptych.image1, activeDiptych.image2].some(image => image && !isMissing(image.path))) {
             previewImage.classList.add('hidden');
             mainCanvas.classList.remove('preview-loading');
             hideLowResPreview();
@@ -873,7 +1021,7 @@ const DiptychApp = (() => {
         // Ensure preview background matches outer border color
         previewImage.style.backgroundColor = activeDiptych.config.border_color;
         mainCanvas.style.backgroundColor = activeDiptych.config.border_color;
-        showLowResPreview(activeDiptych);
+        showLowResPreview(serializeDiptych(activeDiptych));
         try {
             mainCanvas.classList.add('preview-loading');
             // Create a deep copy of the diptych and attach crop_focus to each image
@@ -917,9 +1065,9 @@ const DiptychApp = (() => {
         if (element && diptych) {
             element.classList.toggle('portrait', diptych.config.orientation === 'portrait');
             element.classList.toggle('landscape', diptych.config.orientation !== 'portrait');
-            element.textContent = !diptych.image1 && !diptych.image2 ? 'Empty' : '';
+            element.textContent = [diptych.image1,diptych.image2].some(image => isMissing(image?.path)) ? 'Missing photo' : !diptych.image1 && !diptych.image2 ? 'Empty' : '';
         }
-        if (!element || !diptych || (!diptych.image1 && !diptych.image2)) {
+        if (!element || !diptych || (![diptych.image1,diptych.image2].some(image => image && !isMissing(image.path)))) {
             revokeTrayPreviewUrl(element);
             if(element) element.style.backgroundImage = 'none';
             return;
@@ -1046,6 +1194,7 @@ const DiptychApp = (() => {
         const pair = appState.diptychs[appState.activeDiptychIndex];
         const image = pair[`image${slot}`];
         if (!image) return;
+        if (isMissing(image.path)) { showStatus('This photo is missing. Relink it in the photo library to keep its framing.', 'warning'); return; }
         const frame = {
             pair, slot, source: new Image(), ready: false, rotated: null,
             trigger: document.querySelector(`.btn-frame[data-slot="${slot}"]`),
@@ -1189,6 +1338,11 @@ const DiptychApp = (() => {
     // --- FINAL GENERATION ---
     async function generateDiptychs() {
         if (appState.isGenerating) return;
+        const missingPair = appState.diptychs.findIndex(pair => [pair.image1,pair.image2].some(image => isMissing(image?.path)));
+        if (missingPair !== -1) {
+            switchActiveDiptych(missingPair); appState.libraryFilter = 'placed'; appState.libraryQuery = ''; document.getElementById('library-search').value = ''; renderImagePool();
+            showStatus(`Pair ${missingPair+1} has a missing photo. Relink it in the library before downloading.`, 'warning'); return;
+        }
         if (!validateVisibleLengths()) {
             showStatus('Correct the output dimensions, spacing or border before downloading.', 'warning');
             customWidthInput.focus();
@@ -1289,7 +1443,10 @@ const DiptychApp = (() => {
         // announce the current progress value.  Round to the nearest
         // integer for clarity.
         progressBar.setAttribute('aria-valuenow', Math.round(percent));
+        if (loadingOverlay.classList.contains('hidden')) loadingFocus = document.activeElement;
+        appContainer.inert = true; welcomeScreen.inert = true;
         loadingOverlay.classList.remove('hidden');
+        loadingOverlay.focus();
     }
     function updateLoadingProgress(percent, text) {
         progressText.textContent = text;
@@ -1298,6 +1455,13 @@ const DiptychApp = (() => {
     }
     function hideLoading() {
         loadingOverlay.classList.add('hidden');
+        appContainer.inert = false; welcomeScreen.inert = false;
+        if (loadingFocus?.isConnected && loadingFocus !== document.body && !loadingFocus.closest('[hidden], .hidden')) loadingFocus.focus();
+        else if (loadingFocus) {
+            if (appContainer.classList.contains('hidden')) selectImagesBtn.focus();
+            else diptychTray.querySelector('.diptych-tray-preview.active')?.focus();
+        }
+        loadingFocus = null;
     }
 
     function showStatus(message, type = 'info') {

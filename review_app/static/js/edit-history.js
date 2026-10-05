@@ -3,6 +3,7 @@ const EditHistory = (() => {
     function create(limit = 50) {
         const past = [], future = [];
         return {
+            clear() { past.length = 0; future.length = 0; },
             record(before, after, label, group = null) {
                 if (JSON.stringify(before) === JSON.stringify(after)) return;
                 const last = past.at(-1);

@@ -67,9 +67,8 @@ UPLOAD_TIMES = {}
 # Lock to protect access to UPLOAD_TIMES in multi-threaded contexts
 upload_times_lock = threading.Lock()
 
-# Files older than this many seconds will be removed from the upload and thumbnail
-# caches automatically.  This prevents long-running sessions from consuming
-# unlimited disk space.  Default: 8 hours.
+# Transient thumbnails and preview jobs expire after 8 hours. Uploaded originals
+# remain available for saved browser workspaces until an explicit cache reset.
 MAX_FILE_AGE_SECONDS = 8 * 3600
 cleanup_thread: threading.Thread | None = None
 
@@ -87,12 +86,12 @@ def reset_cache() -> None:
 ensure_cache_dirs()
 
 def cleanup_task():
-    """Background cleanup thread that deletes old uploads and thumbnails."""
+    """Background cleanup thread that deletes transient thumbnails and jobs."""
     while True:
         try:
             now = time.time()
             ensure_cache_dirs()
-            for directory in [UPLOAD_DIR, THUMB_CACHE_DIR]:
+            for directory in [THUMB_CACHE_DIR]:
                 for fname in os.listdir(directory):
                     fpath = os.path.join(directory, fname)
                     try:
@@ -100,9 +99,6 @@ def cleanup_task():
                             age = now - os.path.getmtime(fpath)
                             if age > MAX_FILE_AGE_SECONDS:
                                 os.remove(fpath)
-                                # Remove from upload times if present
-                                with upload_times_lock:
-                                    UPLOAD_TIMES.pop(fname, None)
                     except Exception:
                         logger.exception("Failed cleaning cache file %s", fpath)
             with preview_lock:
@@ -447,10 +443,35 @@ def upload_images():
         response["invalid"] = invalid_files
     return jsonify(response), (400 if invalid_files and not uploaded_filenames else 200)
 
+@app.route('/workspace_images', methods=['POST'])
+def workspace_images():
+    """Validate saved photo references without importing unrelated cached files."""
+    data = request.get_json(silent=True)
+    files = data.get('files') if isinstance(data, dict) else None
+    if not isinstance(files, list) or len(files) > 2000 or any(
+        not isinstance(name, str) or not name or name != secure_filename(name)
+        for name in files
+    ):
+        return jsonify({'error': 'Invalid saved photo references'}), 400
+    available = []
+    for name in files:
+        try:
+            with Image.open(os.path.join(UPLOAD_DIR, name)) as image:
+                image.verify()
+            available.append(name)
+        except (OSError, ValueError):
+            pass
+    return jsonify({'available': available})
+
+
 @app.route('/thumbnail/<filename>')
 def get_thumbnail(filename):
     """Serves a pre-generated thumbnail image for the image pool."""
+    if filename != secure_filename(filename):
+        return "Invalid photo reference", 400
     thumb_path = os.path.join(THUMB_CACHE_DIR, thumbnail_cache_name(filename))
+    if not os.path.exists(thumb_path) and os.path.isfile(os.path.join(UPLOAD_DIR, filename)):
+        create_single_thumbnail(os.path.join(UPLOAD_DIR, filename))
     if os.path.exists(thumb_path):
         return send_file(thumb_path, mimetype='image/jpeg')
     else:
@@ -821,7 +842,7 @@ def download_file():
 if __name__ == '__main__':
     # Running directly will start the Flask server
     logging.basicConfig(level=os.environ.get('LOG_LEVEL', 'INFO'))
-    start_background_services(clean_cache=os.environ.get('DIPTYCH_CLEAN_CACHE', '1') != '0')
+    start_background_services(clean_cache=os.environ.get('DIPTYCH_CLEAN_CACHE', '0') == '1')
     host = os.environ.get('FLASK_HOST', '127.0.0.1')
     port = int(os.environ.get('FLASK_PORT', '5000'))
     app.run(host=host, port=port, debug=False)

@@ -6,13 +6,13 @@ Evidence uses synthetic landscape, portrait, square and corrupt JPEG files (no p
 
 | ID | Finding / reproduction | Planned fix | Status |
 | --- | --- | --- | --- |
-| UI-01 | Upload only a corrupt JPEG on welcome: no visible error; next successful upload still shows stale error. before-invalid-upload.jpg, before-editor.jpg. | Make status and loading visible during onboarding; actionable upload message; clear stale feedback on retry. | Recorded |
-| UI-02 | At 850px the two 288px sidebars leave a tiny canvas. before-editor.jpg. | Responsive workspace with narrower desktop library, full-width canvas and mobile views below 1100px. | Recorded |
-| UI-03 | Empty canvas appears as an unexplained white rectangle; thumbnails require dragging, preventing reliable keyboard/touch placement. | Labeled slots, click/tap image selection then slot placement, keyboard controls and selected feedback. | Recorded |
-| UI-04 | Mobile menu opens both panels at once; panel offsets assume a fixed header height. | Explicit Preview / Images / Settings views in normal document flow, consistent selection and Escape return. | Recorded |
-| UI-05 | Tray has unlabeled non-keyboard div controls, tiny delete targets, no pair context; arrows scroll a non-scrolling parent. | Semantic controls, active state, pair labels, larger targets, scroll the actual tray. | Recorded |
-| UI-06 | Advanced options have no disclosure cue; number/color fields inherit select arrows; custom values silently default or reset during editing. | Clear disclosure, input-specific styling, validate dimensions inline while preserving drafts. | Recorded |
-| UI-07 | Welcome lacks workflow explanation; editor lacks hierarchy and output summary. | Consistent visual system, onboarding guidance, workspace title and live output dimensions. | Recorded |
+| UI-01 | Upload only a corrupt JPEG on welcome: no visible error; next successful upload still shows stale error. before-invalid-upload.jpg, before-editor.jpg. | Make status and loading visible during onboarding; actionable upload message; clear stale feedback on retry. | Implemented and verified |
+| UI-02 | At 850px the two 288px sidebars leave a tiny canvas. before-editor.jpg. | Responsive workspace with narrower desktop library, full-width canvas and mobile views below 1100px. | Implemented and verified |
+| UI-03 | Empty canvas appears as an unexplained white rectangle; thumbnails require dragging, preventing reliable keyboard/touch placement. | Labeled slots, click/tap image selection then slot placement, keyboard controls and selected feedback. | Implemented and verified |
+| UI-04 | Mobile menu opens both panels at once; panel offsets assume a fixed header height. | Explicit Preview / Images / Settings views in normal document flow, consistent selection and Escape return. | Implemented and verified |
+| UI-05 | Tray has unlabeled non-keyboard div controls, tiny delete targets, no pair context; arrows scroll a non-scrolling parent. | Semantic controls, active state, pair labels, larger targets, scroll the actual tray. | Implemented and verified |
+| UI-06 | Advanced options have no disclosure cue; number/color fields inherit select arrows; custom values silently default or reset during editing. | Clear disclosure, input-specific styling, validate dimensions inline while preserving drafts. | Implemented and verified |
+| UI-07 | Welcome lacks workflow explanation; editor lacks hierarchy and output summary. | Consistent visual system, onboarding guidance, workspace title and live output dimensions. | Implemented and verified |
 
 ## Verification checklist
 
@@ -63,11 +63,11 @@ Recorded before implementation:
 
 | ID | Evidence / usability problem | Intended improvement | Status |
 | --- | --- | --- | --- |
-| UI-15 | Output/custom dimensions use inches; spacing and border use pixels. DPI changes alter physical border widths; no coherent conversion or pixel output summary. before-crop-controls.jpg. | One unit preference (mm / inches / pixels) controls all lengths, converts values without changing composition, and shows export pixels/DPI separately. Physical spacing scales with DPI and preview. | Recorded |
-| UI-16 | Shared horizontal/vertical crop focus dropdowns move both images. No independent zoom, interactive positioning or safe cancel/reset. | Per-photo framing dialog: live frame, drag image, zoom, position controls, rotate, reset, Apply/Cancel; each photo retains independent adjustments in preview/export. | Recorded |
-| UI-17 | Source processing auto-rotates even manual rotations; Fit mode auto-rotates despite documentation. User cannot reliably predict orientation. | Explicit per-photo orientation; new UI photos never rotate automatically; maintain legacy API defaults. | Recorded |
-| UI-18 | Size/custom drafts and orientation are indirect: custom fields don't represent portrait output width/height. Changing units or DPI could discard invalid drafts. | Always-visible output width/height in selected units, directly representing final orientation. Validate and preserve draft, output summary, readable preset names, clear DPI consequences. | Recorded |
-| UI-19 | Preview scales output DPI down but leaves pixel gaps/borders unchanged. Preview may disagree with final printed composition. | Scale legacy pixel spacing at preview DPI cap and support physical spacing consistently in both paths; verify preview/export geometry. | Recorded |
+| UI-15 | Output/custom dimensions use inches; spacing and border use pixels. DPI changes alter physical border widths; no coherent conversion or pixel output summary. before-crop-controls.jpg. | One unit preference (mm / inches / pixels) controls all lengths, converts values without changing composition, and shows export pixels/DPI separately. Physical spacing scales with DPI and preview. | Implemented and verified |
+| UI-16 | Shared horizontal/vertical crop focus dropdowns move both images. No independent zoom, interactive positioning or safe cancel/reset. | Per-photo framing dialog: live frame, drag image, zoom, position controls, rotate, reset, Apply/Cancel; each photo retains independent adjustments in preview/export. | Implemented and verified |
+| UI-17 | Source processing auto-rotates even manual rotations; Fit mode auto-rotates despite documentation. User cannot reliably predict orientation. | Explicit per-photo orientation; new UI photos never rotate automatically; maintain legacy API defaults. | Implemented and verified |
+| UI-18 | Size/custom drafts and orientation are indirect: custom fields don't represent portrait output width/height. Changing units or DPI could discard invalid drafts. | Always-visible output width/height in selected units, directly representing final orientation. Validate and preserve draft, output summary, readable preset names, clear DPI consequences. | Implemented and verified |
+| UI-19 | Preview scales output DPI down but leaves pixel gaps/borders unchanged. Preview may disagree with final printed composition. | Scale legacy pixel spacing at preview DPI cap and support physical spacing consistently in both paths; verify preview/export geometry. | Implemented and verified |
 
 - UI-20 (recorded during iteration-2 verification): the added measurement/framing controls make the right panel taller and push tray navigation off screen; modal select inherits flex-grow and becomes oversized. Fix: keep desktop workspace and pair tray in the viewport, independently scroll the settings/library, and give modal form controls a fixed height.
 - UI-21 (recorded during iteration-2 verification): clicking an already-placed photo still asks for a library selection, while the adjustment button can be below the fold in the settings panel. Fix: click a placed photo directly to frame it; selecting a library image still makes the click replace that slot. Make canvas instructions/accessible names match the current action.
@@ -87,7 +87,7 @@ UI-15 through UI-21 implemented; mobile remains deferred.
 
 ### Next exploration
 
-- UI-22 (recorded, not yet fixed): Auto Pair replaces manually curated pairs and framing with no undo. Placement/removal/deletion also lack recovery. Investigate preserving per-photo adjustments through auto-pair and a practical Undo/Redo workflow before considering the broader UX iteration complete.
+- UI-22 (original finding; fixed in iteration 3): Auto Pair replaces manually curated pairs and framing with no undo. Placement/removal/deletion also lack recovery. Investigate preserving per-photo adjustments through auto-pair and a practical Undo/Redo workflow before considering the broader UX iteration complete.
 
 - UI-23 (recorded before fixing): deleting a pair before the active pair changes the active composition; tray reorder leaves the composition heading stale. Preserve active identity on deletion and refresh the heading after reorder.
 
@@ -114,12 +114,12 @@ Recorded before implementation, from a 26-photo library with long filenames:
 
 - UI-27 (recorded during keyboard exploration): selecting a thumbnail rebuilds the library and drops keyboard focus; canceling the selection or placing through the new bar also removes the focused control. Restore focus to the corresponding thumbnail/canvas slot so keyboard users can continue.
 
-- UI-28 (recorded during reload verification, pending): refreshing the browser loses the entire photo library, curated pairs and framing, despite image files staying on the server. Saved preferences only restore layout defaults. Explore saving/restoring the workspace with validation of missing cached files and explicit new-workspace controls.
+- UI-28 (recorded during reload verification; fixed in iteration 5): refreshing the browser loses the entire photo library, curated pairs and framing, despite image files staying on the server. Saved preferences only restore layout defaults. Explore saving/restoring the workspace with validation of missing cached files and explicit new-workspace controls.
 
 
 ### Iteration-4 verification
 
-UI-24 through UI-27 implemented; UI-28 remains pending.
+UI-24 through UI-27 implemented in this iteration; UI-28 subsequently addressed in iteration 5.
 
 - Library tools stay above a separately scrolling collection. All/Available/Placed filters, case-insensitive filename search and Clear search have explicit no-match states. Captions wrap rather than sharing only a truncated prefix; the original filename remains in the accessible label and tooltip. Placed photos identify pair and slot; their location link opens that pair directly. Thumbnail failures stop the indefinite request loop and leave the photo name selectable.
 - Selected-photo bar shows the full filename, explicit Place/Replace slot actions and Cancel. Clicking the selected thumbnail again or Escape deselects it. Keyboard focus remains on the selected thumbnail after selection/cancel, and moves to the canvas slot after placement.
@@ -127,3 +127,44 @@ UI-24 through UI-27 implemented; UI-28 remains pending.
 - Browser checks with 24 long-named photos: FOREST returned 8 matches; a nonexistent filename returned 0 and recovery guidance; Clear restored the list; Placed showed two pair/slot links; the link returned from Pair 2 to Pair 1. Cancel and Escape returned focus to the thumbnail; explicit placement focused the occupied preview slot.
 - Laptop requested 1024 by 768, effective 1138 by 853 CSS pixels: selection bar, full composition and tray remained visible; page width equaled viewport width, canvas bottom 687px and tray top 748px. Visually inspected library-selection-laptop.jpg. Other evidence: library-placed-navigation.jpg and library-no-results.jpg.
 - JavaScript syntax, measurement assertions, history/framing-preservation checks and Git whitespace checks passed. Existing 49 Python tests passed in the preceding iteration; this pass changes frontend code only.
+
+
+## Iteration 5: workspace recovery (2026-10-05)
+
+- UI-28 implementation plan, recorded before changes: save the current workspace locally after edits, uploads and navigation; validate and restore on reload; preserve missing-file references and framing, with a Relink action; provide New workspace with a recoverable previous workspace rather than losing compositions.
+- UI-29 (recorded before fixing): normal startup clears the entire cache by default and the background cleanup removes original uploads after 8 hours. Saved composition metadata would outlive its photos. Retain uploaded originals across restart and clean only transient thumbnails/jobs; keep explicit opt-in cache reset available. Describe storage/cleanup behavior in the README.
+
+- UI-30 (recorded before fixing): the previous-workspace recovery button is only on the welcome screen. Once new photos are uploaded, returning to that screen would overwrite the previous backup. Expose Previous workspace in the editor and swap the two saved workspaces while retaining the current one.
+
+- UI-31 (recorded before fixing, verified with 12 restored pairs): the heading restores Pair 12, but the tray starts at Pair 1, leaving the active thumbnail outside the viewport (left 1650px versus tray right 1342px). Keep the active pair visible whenever the tray is rebuilt.
+
+- UI-32 (recorded before fixing in the 24-photo recovery check): searching All for Coast finds 8 placed photos, but an empty Available section occupies most of the library viewport above them. Hide empty categories in All when another category contains results; retain explicit no-result guidance for individual filters.
+
+- UI-33 (recorded before fixing during recovery review): the loading overlay blocks mouse input but leaves the underlying editor keyboard-accessible during restore/upload/export. Modal Undo shortcuts can also edit the underlying composition. Make welcome/editor inert while a server operation runs, announce progress and preserve focus; suspend composition shortcuts while a workspace dialog is open.
+
+
+### Iteration-5 implementation and verification
+
+UI-28 through UI-33 implemented and verified. All recorded findings UI-01 through UI-33 now have implementation and verification evidence in this log.
+
+- The current workspace saves locally after uploads, composition edits, Undo/Redo, unit/layout changes, pair navigation and library search/filter changes. Reload validates the schema and cached photo references before restoration. Failed recovery retains the saved source; failed writes show an unsaved indicator. Undo history is intentionally limited to a page session.
+- Restored two-pair workspace retained active Pair 2, its 254 by 254 mm square layout, library query/filter, and independent Photo 1 framing at 400%/90 degrees. Returned to Pair 1 and checked its framing summary. Evidence: workspace-restored.jpg.
+- Temporarily moved one synthetic cached original. Reload retained its slot/framing and showed Missing plus Relink; Download All focused the affected pair and stopped export. An unreadable relink left the saved photo unchanged. A renamed replacement retained 400% zoom and 90-degree rotation, then survived another reload. Evidence: workspace-missing-photo.jpg and workspace-photo-relinked.jpg.
+- New workspace dialog explains recovery and file retention; Keep editing preserves the current workspace. Starting new, reloading the empty workspace, and Restore previous workspace recovered both pairs and framing. Previous workspace in the editor exchanges current/previous snapshots, making recovery available after uploading a new collection. Evidence: new-workspace-dialog.jpg and workspace-previous-restored.jpg.
+- Normal app.py restart retained originals and restored the saved workspace. Uploaded originals no longer expire after eight hours; thumbnail cleanup remains bounded and missing thumbnails are regenerated. Explicit cache reset remains opt-in. Browser validation checks readable cached originals rather than trusting filenames alone.
+- A second workspace with 24 long-named photos and 12 pairs retained Pair 12, query Coast and 8 matching photos after reload. Switching to the two-photo workspace and back retained both. The active tray card stays visible after rebuild/reload and desktop-to-laptop resizing. Empty categories no longer push matching search results down in All. Evidence: workspace-many-pairs-restored.jpg and workspace-recovery-laptop.jpg.
+- Restored-workspace ZIP contained 12 JPEGs, each 1800 by 1200 pixels with 300 DPI metadata. During generation both editor and welcome were inert, focus was on the progress overlay, Ctrl+Z did not undo the pending 90-degree photo rotation, and completion returned focus to Download All. Undo then restored 0 degrees. Evidence: workspace-export-progress.jpg.
+- Automated checks: 51 Python tests passed, including readable/missing/corrupt cached-photo validation, unsafe references, thumbnail regeneration and retention of originals through cleanup. JavaScript checks cover workspace round trips, missing-reference preservation, immutable framing, schema/length/position validation, duplicate placement rejection, unit conversion and history invariants. Syntax and whitespace checks passed.
+
+### Completion audit
+
+| User requirement | Current evidence |
+| --- | --- |
+| Pull the latest version and push meaningful changes | Fast-forward pulls before each iteration; commits d6ed6db, 4ecaf08, 56efbaa, 7fec8d9, 2044a62 and the iteration-5 commit pushed to origin/main. |
+| Assess the whole desktop UI through actual use, including unhappy paths, with screenshots | Welcome/upload, 24-photo library, placement/replacement, 12-pair tray, layout controls, framing dialog, preview/export, undo and workspace recovery exercised. Invalid uploads/dimensions, cancel, missing originals, unreadable relink and recovery captured. Evidence is in docs/ui-review and the iteration records above. |
+| Record findings in tracked Markdown before fixing them | Findings UI-01 through UI-33 and implementation/verification entries are tracked in this file; screenshot evidence is tracked alongside it. |
+| Improve the layout and usability | Independent side-panel scrolling, pinned tray, readable hierarchy, persistent library tools, explicit placement actions, pair locations, Undo/Redo, active-pair visibility and recoverable workspaces verified on desktop/laptop. |
+| Use consistent dimensions and improve cropping/resizing | One unit preference across all lengths, direct final width/height, predictable DPI, independent drag/zoom/position/rotation/Fit/Fill, safe Apply/Cancel and matching preview/export verified in iteration 2 plus automated geometry checks. |
+| Focus on desktop/laptop; mobile can wait | Desktop and laptop evidence captured; current page width equals the tested viewport. Further phone-specific polish remains deferred as requested. |
+
+No recorded issue remains awaiting implementation. Workspace metadata is local to this browser/address; cached files and originals remain on this machine. The README describes recovery, retained originals, the one-previous-workspace limit, optional cache reset and Docker cache persistence.

@@ -60,3 +60,14 @@ Click a placed photo (or its **Crop, position & resize** button) to adjust it in
 Composition edits support Undo/Redo for the current page session (up to 50 edits). Use the toolbar or Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z outside form fields. Auto Pair preserves each photo's framing; Undo restores the previous arrangement. Uploaded photos remain available when edits are undone.
 
 The photo library supports filename search and All/Available/Placed filters. Placed photos link to their pair. Select a photo to show explicit slot actions, and cancel with Escape or Cancel. Swap photos reverses a pair while retaining each photo's adjustments.
+
+
+## Saved workspace
+
+The editor automatically saves photo references, pairs, individual framing, layout settings, active pair and library search/filter in this browser. Reopen the same address in the same browser to resume. Undo history remains limited to the current page session. The saved indicator reports browser storage failures rather than claiming that changes were saved.
+
+Uploaded originals in `.cache/uploads` now remain across normal app restarts; transient thumbnails are regenerated when needed. **New workspace** keeps one recoverable previous workspace. Restore it from the welcome screen or use **Previous workspace** in the editor to switch between the two. Starting another new workspace replaces that previous snapshot. Photo files remain cached locally.
+
+If a cached original is removed, the library marks it missing. Use **Relink photo** to choose a replacement while keeping its rotation, cropping and size. Missing photos block export and Auto Pair until recovered. Keep the original photos separately; browser storage and cached uploads are local working copies.
+
+For an explicit cache reset, launch with `DIPTYCH_CLEAN_CACHE=1`. That removes cached photo files; saved browser workspaces will require relinking. Leave it unset for normal recovery. Docker recovery also requires persisting the `/app/.cache` directory across container replacement.

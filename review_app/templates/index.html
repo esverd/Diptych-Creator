@@ -13,10 +13,11 @@
     <!-- Use a relative path to load the compiled CSS when served from the filesystem.
          We avoid Flask's `url_for` helper here because this file may be opened directly
          from disk during development, in which case Jinja templating won't run. -->
-    <link rel="stylesheet" href="../static/css/style.css?v=20261005d">
+    <link rel="stylesheet" href="../static/css/style.css?v=20261005e">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body class="bg-white text-[var(--text-primary)]" style="font-family: Manrope, 'Noto Sans', sans-serif;">
+    <input type="file" id="relink-uploader" hidden accept="image/png, image/jpeg, image/webp, image/tiff">
     <input type="file" id="file-uploader" class="hidden" multiple accept="image/png, image/jpeg, image/webp, image/tiff">
 
         <div id="status-banner" class="status-banner hidden" role="status" aria-live="polite">
@@ -33,7 +34,7 @@
             <p class="text-slate-600 mt-2">Two images. One thoughtful composition.</p>
             <p class="welcome-help">Upload your photos, arrange a pair, then export a print-ready layout.</p><div class="mt-8 flex gap-4 justify-center">
                 <button id="select-images-btn" class="btn btn-primary w-40">Select Images</button>
-            </div><p class="welcome-formats">JPEG, PNG, WebP &amp; TIFF · Your images stay on this machine</p>
+            </div><button id="restore-workspace-btn" class="btn btn-secondary mt-4" hidden>Restore previous workspace</button><p class="welcome-formats">JPEG, PNG, WebP &amp; TIFF · Your images stay on this machine</p>
         </div>
     </div>
 
@@ -72,6 +73,8 @@
                     <div class="library-title"><h2>Photo library</h2><button id="upload-more-btn" class="btn btn-secondary">Upload More</button></div>
                     <label class="sr-only" for="library-search">Search photos by filename</label><div class="library-search-row"><input id="library-search" type="search" placeholder="Search filenames" autocomplete="off"><button id="library-clear" type="button" aria-label="Clear photo search" hidden>&times;</button></div>
                     <div class="library-filters" role="group" aria-label="Photo library filter"><button data-filter="all" aria-pressed="true">All</button><button data-filter="available" aria-pressed="false">Available</button><button data-filter="placed" aria-pressed="false">Placed</button></div>
+                    <div class="workspace-save-row"><span id="workspace-save-status" role="status">Saved on this device</span><button id="new-workspace-btn" type="button">New workspace</button></div>
+                    <button id="previous-workspace-btn" type="button" class="previous-workspace" hidden>Previous workspace</button>
                     <p id="library-results" class="control-help" role="status"></p>
                 </div>
                 <div class="library-content">
@@ -205,10 +208,10 @@
         </div>
 
     </div>
-        <div id="loading-overlay" class="hidden absolute inset-0 z-50 bg-white/70 backdrop-blur-sm flex items-center justify-center">
+        <div id="loading-overlay" tabindex="-1" aria-label="Operation in progress" class="hidden absolute inset-0 z-50 bg-white/70 backdrop-blur-sm flex items-center justify-center">
             <div class="text-center w-64">
                 <div class="loader"></div>
-                <p id="progress-text" class="text-lg font-semibold mt-4">Loading...</p>
+                <p id="progress-text" role="status" aria-live="polite" class="text-lg font-semibold mt-4">Loading...</p>
                 <div class="progress-bar-container">
                     <!-- Add role and ARIA attributes to the progress bar for accessibility.  Screen readers will
                          announce the progress percentage via aria-valuenow, which is updated dynamically in JS. -->
@@ -228,9 +231,11 @@
         </div></div>
         <div class="framing-footer"><span>Applies to this photo only.</span><button id="framing-cancel" class="btn btn-secondary">Cancel</button><button id="framing-apply" class="btn btn-primary">Apply adjustments</button></div>
     </dialog>
+    <dialog id="new-workspace-dialog"><h2>Start a new workspace?</h2><p>Your current photos and compositions will be kept as the previous workspace. You can restore it from the welcome screen. Cached photo files stay on this machine.</p><div><button id="new-workspace-cancel" class="btn btn-secondary">Keep editing</button><button id="new-workspace-confirm" class="btn btn-primary">Start new workspace</button></div></dialog>
+    <script src="../static/js/workspace.js?v=20261005e"></script>
     <script src="../static/js/edit-history.js?v=20261005c"></script>
     <script src="../static/js/measurements.js?v=20261005b"></script>
     <!-- Use a relative path for the app script when the file is opened locally. -->
-    <script src="../static/js/app.js?v=20261005d"></script>
+    <script src="../static/js/app.js?v=20261005e"></script>
 </body>
 </html>
