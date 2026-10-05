@@ -53,3 +53,5 @@ UI-01 through UI-03 and UI-05 through UI-14 are implemented. UI-04 has a minimal
 ## Future assessment notes
 
 Screenshots use synthetic blocks to make layout and state transitions obvious. A later reviewer should repeat with a larger collection of real photos, long filenames and mixed photographic subjects to evaluate crop decisions and library scanning. Phone-specific polish remains deferred. The app continues to load its existing Tailwind/Sortable/font dependencies from CDNs.
+
+Final browser check after push: invalid Custom width + Download All displayed "Correct the custom width and height before downloading" and focused the width field; corrected to 6 inches and restored preset. Updated after-invalid-dimensions.jpg captures this export guard. Browser viewport override reset; editor left open for inspection.
