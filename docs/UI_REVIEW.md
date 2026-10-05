@@ -88,3 +88,17 @@ UI-15 through UI-21 implemented; mobile remains deferred.
 ### Next exploration
 
 - UI-22 (recorded, not yet fixed): Auto Pair replaces manually curated pairs and framing with no undo. Placement/removal/deletion also lack recovery. Investigate preserving per-photo adjustments through auto-pair and a practical Undo/Redo workflow before considering the broader UX iteration complete.
+
+- UI-23 (recorded before fixing): deleting a pair before the active pair changes the active composition; tray reorder leaves the composition heading stale. Preserve active identity on deletion and refresh the heading after reorder.
+
+
+### Iteration 3: edit recovery (2026-10-05)
+
+UI-22 and UI-23 implemented. Evidence: before-pair-recovery.jpg shows the previous Auto Pair result resetting photos to 100%; after-pair-framing-preserved.jpg shows 400% framing retained; undo-laptop-workspace.jpg shows recovery controls at laptop size.
+
+- Undo/Redo recovers up to 50 composition edits: placement/moving, removal, rotation, photo framing, size presets, typed layout settings, orientation, adding/deleting/reordering pairs and Auto Pair. Consecutive changes to a focused numeric/color input form one edit. Navigation and unit display changes are not edits; uploads remain in the library when earlier composition edits are undone. History lasts for the current page session.
+- Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z and Ctrl/Cmd+Y redo outside text/form controls. Native input editing keeps its own shortcuts. Modal drafts and in-progress server jobs block composition history restoration.
+- Auto Pair retains independent framing and the layout of an unchanged ordered pair. Newly formed pairs use the active layout. Undo restores the previous pairs and active pair together. New edits clear the redo branch.
+- Browser verification: apply 400% crop, add empty pair, Auto Pair preserves crop; Undo restores Pair 2 of 2, Redo rebuilds; remove photo then Undo restores 400% crop; rotation after Undo clears Redo; Ctrl+Z restores rotation. Three-pair deletion test kept the middle portrait composition active after deleting pair 1, then Undo restored all three.
+- Laptop requested 1024×768 (1138×853 CSS pixels under host scaling): page width equals viewport; Undo, Redo, Auto Pair and Download All remain visible. Screenshot visually inspected.
+- Automated checks: 49 Python tests passed; measurement checks passed; history checks cover coalescing, immutable snapshots, no-ops, bounded history, redo invalidation, per-photo framing preservation, unchanged-pair layout and odd-image pairing. JavaScript syntax and git whitespace checks passed.

@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "test": "npm run test:js && npm run test:py",
-    "test:js": "node --check review_app/static/js/app.js && node --check review_app/static/js/measurements.js && node tests/test_measurements.cjs",
+    "test:js": "node --check review_app/static/js/app.js && node --check review_app/static/js/measurements.js && node tests/test_measurements.cjs && node --check review_app/static/js/edit-history.js && node tests/test_edit_history.cjs",
     "test:py": "python -m pytest -q"
   }
 }

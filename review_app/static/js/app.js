@@ -19,6 +19,31 @@ const DiptychApp = (() => {
         traySortable: null,
     };
     const PREVIEW_DEBOUNCE_DELAY = 300;
+    const history = EditHistory.create();
+    let historyReady = false;
+    let editGesture = 0;
+    const snapshot = () => JSON.parse(JSON.stringify({diptychs: appState.diptychs, activeDiptychIndex: appState.activeDiptychIndex}));
+    function recordEdit(before, label, group = null) {
+        if (historyReady) history.record(before, snapshot(), label, group);
+        updateHistoryControls();
+    }
+    function updateHistoryControls() {
+        for (const action of ['undo', 'redo']) {
+            const button = document.getElementById(`${action}-btn`);
+            const label = history[`${action}Label`];
+            button.disabled = !label;
+            button.title = label ? `${action === 'undo' ? 'Undo' : 'Redo'}: ${label}` : `Nothing to ${action}`;
+        }
+    }
+    function restoreEdit(action) {
+        if (framingDialog.open || !loadingOverlay.classList.contains('hidden')) return;
+        const restored = history[action]();
+        if (!restored) return;
+        Object.assign(appState, restored, {selectedImagePath: null});
+        appState.previewRequestSeq++;
+        renderImagePool(); renderDiptychTray(); renderActiveDiptychUI();
+        requestPreviewRefresh(); persistDiptychOrder(); saveSettings(); updateHistoryControls();
+    }
 
     // --- ELEMENT SELECTORS ---
     const fileUploader = document.getElementById('file-uploader');
@@ -71,6 +96,8 @@ const DiptychApp = (() => {
         initializeDragAndDrop();
         updateMobileMenuIcon();
         initializeFraming();
+        historyReady = true;
+        updateHistoryControls();
         const canvasSizer = new ResizeObserver(fitCanvasToWorkspace);
         canvasSizer.observe(document.getElementById('preview-panel'));
         canvasSizer.observe(document.querySelector('.workspace-heading'));
@@ -79,6 +106,16 @@ const DiptychApp = (() => {
     // --- EVENT LISTENERS ---
     function addEventListeners() {
         [selectImagesBtn, uploadMoreBtn, uploadLabel].forEach(el => el.addEventListener('click', () => fileUploader.click()));
+        ['undo', 'redo'].forEach(action => document.getElementById(`${action}-btn`).addEventListener('click', () => restoreEdit(action)));
+        document.addEventListener('focusin', () => editGesture++);
+        document.addEventListener('keydown', event => {
+            if (!(event.ctrlKey || event.metaKey) || event.altKey || event.target.closest('input, textarea, select, [contenteditable="true"]') || framingDialog.open) return;
+            const key = event.key.toLowerCase();
+            if (key === 'z' || key === 'y') {
+                event.preventDefault();
+                restoreEdit(key === 'y' || event.shiftKey ? 'redo' : 'undo');
+            }
+        });
         fileUploader.addEventListener('change', handleFileUpload);
         downloadBtn.addEventListener('click', generateDiptychs);
         autoPairBtn.addEventListener('click', autoPairImages);
@@ -172,6 +209,7 @@ const DiptychApp = (() => {
         }
         if (!appState.images.some(image => image.path === path)) return;
         const active = appState.diptychs[appState.activeDiptychIndex];
+        const before = snapshot();
         const previousImage = appState.diptychs.flatMap(pair => [pair.image1, pair.image2]).find(image => image?.path === path);
         removeImageFromDiptychs(path);
         active[`image${slot}`] = { ...previousImage, path, auto_rotate: false };
@@ -182,6 +220,8 @@ const DiptychApp = (() => {
         renderActiveDiptychUI();
         requestPreviewRefresh();
         toggleMobileTab('preview');
+        recordEdit(before, 'Place photo');
+        persistDiptychOrder();
     }
 
     async function handleFileUpload(event) {
@@ -228,6 +268,7 @@ const DiptychApp = (() => {
     }
 
     function addNewDiptych(andSwitch = true) {
+        const before = snapshot();
         let baseConfig = { fit_mode: 'fit', gap: 20, width: 6, height: 4, orientation: 'landscape', dpi: 300, outer_border: 20, border_color: '#ffffff', crop_focus: [0.5, 0.5] };
         if (appState.diptychs.length > 0) {
             baseConfig = { ...appState.diptychs[appState.activeDiptychIndex].config };
@@ -242,6 +283,7 @@ const DiptychApp = (() => {
         renderDiptychTray();
         if (andSwitch) { renderActiveDiptychUI(); requestPreviewRefresh(); }
         persistDiptychOrder();
+        recordEdit(before, 'Add pair');
     }
 
     function switchActiveDiptych(index) {
@@ -256,7 +298,9 @@ const DiptychApp = (() => {
     function deleteDiptych(index) {
         if (appState.diptychs.length <= 1) return;
         if (index >= 0 && index < appState.diptychs.length) {
+            const before = snapshot();
             appState.diptychs.splice(index, 1);
+            if (index < appState.activeDiptychIndex) appState.activeDiptychIndex--;
             if (appState.activeDiptychIndex >= appState.diptychs.length) {
                 appState.activeDiptychIndex = appState.diptychs.length - 1;
             }
@@ -265,11 +309,13 @@ const DiptychApp = (() => {
             renderActiveDiptychUI();
             requestPreviewRefresh();
             persistDiptychOrder();
+            recordEdit(before, 'Delete pair');
         }
     }
 
     async function autoPairImages() {
         if (appState.images.length === 0) return;
+        const before = snapshot();
         showLoading('Pairing images...');
         try {
             const baseConfig = appState.diptychs.length > 0
@@ -280,11 +326,7 @@ const DiptychApp = (() => {
             const response = await fetch('/auto_group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method, files: appState.images.map(image => image.path) }) });
             if (!response.ok) throw new Error('Auto grouping failed');
             const data = await response.json();
-            appState.diptychs = data.pairs.map(p => ({
-                image1: p[0] ? { path: p[0], auto_rotate: false } : null,
-                image2: p[1] ? { path: p[1], auto_rotate: false } : null,
-                config: { ...baseConfig }
-            }));
+            appState.diptychs = EditHistory.pair(data.pairs, appState.diptychs, baseConfig);
             if (appState.diptychs.length === 0) addNewDiptych();
             appState.activeDiptychIndex = 0;
             renderDiptychTray();
@@ -292,6 +334,7 @@ const DiptychApp = (() => {
             renderActiveDiptychUI();
             requestPreviewRefresh();
             persistDiptychOrder();
+            recordEdit(before, 'Auto Pair');
         } catch (err) {
             showStatus(`Auto pairing failed: ${err.message}`, 'error');
         } finally {
@@ -320,11 +363,12 @@ const DiptychApp = (() => {
             customWidthInput.focus();
             return;
         }
+        const before = snapshot();
         const config = appState.diptychs[appState.activeDiptychIndex].config;
         [config.width, config.height] = outputSizeSelect.value.split('x').map(Number);
         if (config.width === config.height) config.orientation = 'landscape';
         renderActiveDiptychUI();
-        handleConfigChange();
+        handleConfigChange(undefined, before);
     }
 
     function saveSettings() {
@@ -375,9 +419,10 @@ const DiptychApp = (() => {
         return !error;
     }
 
-    function handleConfigChange(event) {
+    function handleConfigChange(event, previous) {
         const active = appState.diptychs[appState.activeDiptychIndex];
         if (!active || !validateVisibleLengths()) return;
+        const before = previous || snapshot();
         const config = active.config;
         migrateMeasurements(config);
         const target = event?.target;
@@ -401,6 +446,7 @@ const DiptychApp = (() => {
         updateActiveTrayPreview();
         requestPreviewRefresh();
         saveSettings();
+        recordEdit(before, 'Change layout', event?.type === 'input' ? `${target.id}:${editGesture}` : null);
     }
 
     function serializeDiptych(diptych) {
@@ -415,11 +461,13 @@ const DiptychApp = (() => {
     function toggleOrientation() {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         if (!activeDiptych || !validateVisibleLengths()) return;
+        const before = snapshot();
         activeDiptych.config.orientation = activeDiptych.config.orientation === 'landscape' ? 'portrait' : 'landscape';
         renderActiveDiptychUI();
         updateActiveTrayPreview();
         requestPreviewRefresh();
         saveSettings();
+        recordEdit(before, 'Change orientation');
     }
 
     function handleRotate(e) {
@@ -427,11 +475,13 @@ const DiptychApp = (() => {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         const imageKey = `image${slot}`;
         if (activeDiptych?.[imageKey]) {
+            const before = snapshot();
             activeDiptych[imageKey].rotation = ((activeDiptych[imageKey].rotation || 0) + 90) % 360;
             activeDiptych[imageKey].auto_rotate = false;
             renderActiveDiptychUI();
             updateActiveTrayPreview();
             requestPreviewRefresh();
+            recordEdit(before, 'Rotate photo');
         }
     }
 
@@ -440,11 +490,13 @@ const DiptychApp = (() => {
         const activeDiptych = appState.diptychs[appState.activeDiptychIndex];
         const imageKey = `image${slot}`;
         if (activeDiptych?.[imageKey]) {
+            const before = snapshot();
             activeDiptych[imageKey] = null;
             renderImagePool();
             renderActiveDiptychUI();
             updateActiveTrayPreview();
             requestPreviewRefresh();
+            recordEdit(before, 'Remove photo');
         }
     }
 
@@ -669,6 +721,7 @@ const DiptychApp = (() => {
                 animation: 150,
                 filter: '.add-diptych-btn',
                 onEnd: () => {
+                    const before = snapshot();
                     const order = Array.from(diptychTray.querySelectorAll('.diptych-tray-item'))
                         .map(el => parseInt(el.dataset.index, 10));
                     const newDiptychs = order.map(i => appState.diptychs[i]);
@@ -676,6 +729,8 @@ const DiptychApp = (() => {
                     appState.diptychs = newDiptychs;
                     if (newActive !== -1) appState.activeDiptychIndex = newActive;
                     renderDiptychTray();
+                    renderActiveDiptychUI();
+                    recordEdit(before, 'Reorder pairs');
                     persistDiptychOrder();
                 }
             });
@@ -875,8 +930,10 @@ const DiptychApp = (() => {
         document.getElementById('framing-apply').addEventListener('click', () => {
             const frame = appState.framing;
             if (!frame?.source || !frame.ready) return;
+            const before = snapshot();
             frame.pair[`image${frame.slot}`] = { ...frame.draft, crop_focus: [...frame.draft.crop_focus], auto_rotate: false };
             framingDialog.close();
+            recordEdit(before, 'Adjust photo framing');
             renderActiveDiptychUI();
             updateActiveTrayPreview();
             requestPreviewRefresh();
